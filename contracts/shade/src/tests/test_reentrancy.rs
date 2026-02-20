@@ -1,58 +1,100 @@
-// test_reentrancy.rs
+#![cfg(test)]
 
-use soroban_sdk::testutils::U256;
-use soroban_sdk::{contractimpl, testutils::Budget, vec};
+use soroban_sdk::Env;
 
-// Mock contract for testing reentrancy
-struct TestContract;
+use crate::components::reentrancy::{enter, exit};
+use crate::errors::ContractError;
+use crate::types::DataKey;
 
-#[contractimpl]
-impl TestContract {
-    pub fn execute(&self) {
-        //... function logic for executing a transaction
-    }
+/// Test 1: Standard Execution
+/// Calls enter() then exit() once — verifies the guard sets and clears correctly.
+#[test]
+fn test_enter_sets_reentrancy_flag() {
+    let env = Env::default();
 
-    pub fn reenterable_call(&self) {
-        // This simulates the call that can be re-entered
-        // Logic that should not allow reentrant calls
+    enter(&env);
+
+    // After enter, the ReentrancyStatus key should exist in storage
+    assert!(
+        env.storage().persistent().has(&DataKey::ReentrancyStatus),
+        "ReentrancyStatus should be set after enter()"
+    );
+
+    exit(&env);
+}
+
+/// Test 2: Exit clears the flag
+/// Verifies that exit() removes the ReentrancyStatus key from storage.
+#[test]
+fn test_exit_clears_reentrancy_flag() {
+    let env = Env::default();
+
+    enter(&env);
+    exit(&env);
+
+    // After exit, the ReentrancyStatus key should be gone
+    assert!(
+        !env.storage().persistent().has(&DataKey::ReentrancyStatus),
+        "ReentrancyStatus should be cleared after exit()"
+    );
+}
+
+/// Test 3: Blocked Reentrancy
+/// Calls enter() twice without exit() in between — verifies the Reentrancy error is triggered.
+#[test]
+#[should_panic(expected = "Reentrancy")]
+fn test_double_enter_triggers_reentrancy_error() {
+    let env = Env::default();
+
+    enter(&env); // First enter — should succeed
+    enter(&env); // Second enter without exit — should panic with ContractError::Reentrancy
+}
+
+/// Test 4: State Reset After Successful Execution
+/// Verifies that after a full enter -> exit cycle, the guard is reset
+/// and a subsequent enter() call succeeds.
+#[test]
+fn test_sequential_calls_succeed_after_reset() {
+    let env = Env::default();
+
+    // First guarded call
+    enter(&env);
+    exit(&env);
+
+    // Guard should be reset — second call should succeed without panic
+    enter(&env);
+    exit(&env);
+
+    assert!(
+        !env.storage().persistent().has(&DataKey::ReentrancyStatus),
+        "ReentrancyStatus should be cleared after second exit()"
+    );
+}
+
+/// Test 5: Multiple sequential calls all succeed
+/// Runs enter/exit three times in a row to confirm the guard resets reliably.
+#[test]
+fn test_multiple_sequential_calls_succeed() {
+    let env = Env::default();
+
+    for _ in 0..3 {
+        enter(&env);
+        assert!(
+            env.storage().persistent().has(&DataKey::ReentrancyStatus),
+            "ReentrancyStatus should be set inside guarded section"
+        );
+        exit(&env);
+        assert!(
+            !env.storage().persistent().has(&DataKey::ReentrancyStatus),
+            "ReentrancyStatus should be cleared after exit"
+        );
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use soroban_sdk::testutils::assert_ok;
-
-    #[test]
-    fn test_standard_execution() {
-        let contract = TestContract;
-        contract.execute();
-        // Assert the expected state after executing
-    }
-
-    #[test]
-    fn test_blocked_reentrancy() {
-        let contract = TestContract;
-        // Attempting to re-enter should fail
-        assert!(std::panic::catch_unwind(|| {
-            contract.reenterable_call();
-        }).is_err());
-    }
-
-    #[test]
-    fn test_state_reset() {
-        let contract = TestContract;
-        // Execute and re-enter to ensure state resets properly
-        contract.execute();
-        //... further test logic
-    }
-
-    #[test]
-    fn test_error_propagation() {
-        let contract = TestContract;
-        // Simulate an error condition and check if it propagates correctly
-        assert!(std::panic::catch_unwind(|| {
-            contract.execute();
-        }).is_err());
-    }
+/// Test 6: Error Propagation / Storage Integrity
+/// Verifies the ContractError::Reentrancy value is 4 as defined,
+/// confirming the error enum is correctly wired.
+#[test]
+fn test_reentrancy_error_value() {
+    assert_eq!(ContractError::Reentrancy as u32, 4);
 }
