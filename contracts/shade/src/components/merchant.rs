@@ -1,15 +1,21 @@
+use crate::components::account_factory;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Merchant};
-use soroban_sdk::{panic_with_error, Address, Env};
+use soroban_sdk::{panic_with_error, Address, BytesN, Env};
 
-pub fn register_merchant(env: &Env, merchant: &Address) {
-    merchant.require_auth();
+pub fn register_merchant(
+    env: &Env,
+    merchant_address: Address,
+    manager_address: Address,
+    wasm_hash: BytesN<32>,
+) -> Address {
+    merchant_address.require_auth();
 
     if env
         .storage()
         .persistent()
-        .has(&DataKey::MerchantId(merchant.clone()))
+        .has(&DataKey::MerchantId(merchant_address.clone()))
     {
         panic_with_error!(env, ContractError::MerchantAlreadyRegistered);
     }
@@ -22,9 +28,17 @@ pub fn register_merchant(env: &Env, merchant: &Address) {
 
     let new_id = merchant_count + 1;
 
+    let contract_address = account_factory::deploy_account(
+        env,
+        merchant_address.clone(),
+        manager_address,
+        new_id,
+        wasm_hash,
+    );
+
     let merchant_data = Merchant {
         id: new_id,
-        address: merchant.clone(),
+        address: merchant_address.clone(),
         active: true,
         verified: false,
         date_registered: env.ledger().timestamp(),
@@ -35,17 +49,19 @@ pub fn register_merchant(env: &Env, merchant: &Address) {
         .set(&DataKey::Merchant(new_id), &merchant_data);
     env.storage()
         .persistent()
-        .set(&DataKey::MerchantId(merchant.clone()), &new_id);
+        .set(&DataKey::MerchantId(merchant_address.clone()), &new_id);
     env.storage()
         .persistent()
         .set(&DataKey::MerchantCount, &new_id);
 
     events::publish_merchant_registered_event(
         env,
-        merchant.clone(),
+        merchant_address.clone(),
         new_id,
         env.ledger().timestamp(),
     );
+
+    contract_address
 }
 
 pub fn get_merchant(env: &Env, merchant_id: u64) -> Merchant {

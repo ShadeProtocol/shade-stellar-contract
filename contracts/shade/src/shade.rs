@@ -42,8 +42,18 @@ impl ShadeTrait for Shade {
         admin_component::is_accepted_token(&env, &token)
     }
 
-    fn register_merchant(env: Env, merchant: Address) {
-        merchant_component::register_merchant(&env, &merchant);
+    fn register_merchant(
+        env: Env,
+        merchant_address: Address,
+        manager_address: Address,
+        wasm_hash: soroban_sdk::BytesN<32>,
+    ) -> Address {
+        merchant_component::register_merchant(
+            &env,
+            merchant_address,
+            manager_address,
+            wasm_hash,
+        )
     }
 
     fn get_merchant(env: Env, merchant_id: u64) -> Merchant {
