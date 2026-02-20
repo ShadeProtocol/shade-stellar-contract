@@ -31,15 +31,13 @@ fn test_successful_account_deployment() {
     shade_client.initialize(&admin);
 
     let wasm_hash = env.deployer().upload_contract_wasm(ACCOUNT_WASM);
+    shade_client.set_account_wasm_hash(&admin, &wasm_hash);
 
     let merchant_address = Address::generate(&env);
-    let manager_address = shade_id.clone();
 
     // Test deployment execution (called internally by register_merchant, which is adequate to test)
     let deployed_contract: Address = shade_client.register_merchant(
         &merchant_address,
-        &manager_address,
-        &wasm_hash,
     );
 
     // Verify it returns a valid address
@@ -76,14 +74,12 @@ fn test_integration_with_merchant_registration() {
     shade_client.initialize(&admin);
 
     let wasm_hash = env.deployer().upload_contract_wasm(ACCOUNT_WASM);
+    shade_client.set_account_wasm_hash(&admin, &wasm_hash);
     let merchant_address = Address::generate(&env);
-    let manager_address = shade_id.clone();
 
     // Call register_merchant
     shade_client.register_merchant(
         &merchant_address,
-        &manager_address,
-        &wasm_hash,
     );
 
     // Validate that the new merchant is created and linked correctly by pulling directly from mock storage.
@@ -115,18 +111,19 @@ fn test_uniqueness_of_deployed_accounts() {
     shade_client.initialize(&admin);
 
     let wasm_hash = env.deployer().upload_contract_wasm(ACCOUNT_WASM);
+    shade_client.set_account_wasm_hash(&admin, &wasm_hash);
 
     // Register merchant 1
     let merchant_1 = Address::generate(&env);
-    let account_1 = shade_client.register_merchant(&merchant_1, &shade_id, &wasm_hash);
+    let account_1 = shade_client.register_merchant(&merchant_1);
 
     // Register merchant 2
     let merchant_2 = Address::generate(&env);
-    let account_2 = shade_client.register_merchant(&merchant_2, &shade_id, &wasm_hash);
+    let account_2 = shade_client.register_merchant(&merchant_2);
 
     // Register merchant 3
     let merchant_3 = Address::generate(&env);
-    let account_3 = shade_client.register_merchant(&merchant_3, &shade_id, &wasm_hash);
+    let account_3 = shade_client.register_merchant(&merchant_3);
 
     // Verify uniqueness
     assert_ne!(account_1, account_2);
@@ -141,16 +138,16 @@ fn test_initialization_verification() {
 
     let shade_id = env.register(Shade, ());
     let shade_client = ShadeClient::new(&env, &shade_id);
-    shade_client.initialize(&Address::generate(&env));
+    let admin = Address::generate(&env);
+    shade_client.initialize(&admin);
 
     let wasm_hash = env.deployer().upload_contract_wasm(ACCOUNT_WASM);
+    shade_client.set_account_wasm_hash(&admin, &wasm_hash);
+    
     let merchant_address = Address::generate(&env);
-    let manager_address = shade_id.clone();
 
     let account_address = shade_client.register_merchant(
         &merchant_address,
-        &manager_address,
-        &wasm_hash,
     );
 
     // We can construct a client for the freshly deployed account natively using `ACCOUNT_WASM` interface.

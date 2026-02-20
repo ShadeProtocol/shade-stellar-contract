@@ -10,4 +10,5 @@ pub enum ContractError {
     Reentrancy = 4,
     MerchantAlreadyRegistered = 5,
     MerchantNotFound = 6,
+    WasmHashNotSet = 7,
 }

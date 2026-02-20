@@ -4,12 +4,7 @@ use crate::events;
 use crate::types::{DataKey, Merchant};
 use soroban_sdk::{panic_with_error, Address, BytesN, Env};
 
-pub fn register_merchant(
-    env: &Env,
-    merchant_address: Address,
-    manager_address: Address,
-    wasm_hash: BytesN<32>,
-) -> Address {
+pub fn register_merchant(env: &Env, merchant_address: Address) -> Address {
     merchant_address.require_auth();
 
     if env
@@ -28,10 +23,16 @@ pub fn register_merchant(
 
     let new_id = merchant_count + 1;
 
+    let wasm_hash: BytesN<32> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::AccountWasmHash)
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::WasmHashNotSet));
+
     let contract_address = account_factory::deploy_account(
         env,
         merchant_address.clone(),
-        manager_address,
+        env.current_contract_address(),
         new_id,
         wasm_hash,
     );

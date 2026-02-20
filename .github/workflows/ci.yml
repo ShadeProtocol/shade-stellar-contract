@@ -35,12 +35,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       
-      - name: Install soroban-cli
-        run: cargo install --locked --version 21.4.1 soroban-cli
-
-      - name: Build contracts
-        run: soroban contract build
-
       - name: Run tests
         run: cargo test --workspace --all-features
       
