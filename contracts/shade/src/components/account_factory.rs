@@ -16,7 +16,7 @@ pub fn deploy_account(
     let deployed_contract = env
         .deployer()
         .with_current_contract(salt)
-        .deploy(wasm_hash);
+        .deploy_v2(wasm_hash, ());
 
     // Initialize the deployed contract with the required arguments.
     // The account contract's `initialize` function signature is:
