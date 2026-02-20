@@ -16,6 +16,7 @@ pub enum DataKey {
     Invoice(u64),
     InvoiceCount,
     ReentrancyStatus,
+    AccountWasmHash,
 }
 
 #[contracttype]

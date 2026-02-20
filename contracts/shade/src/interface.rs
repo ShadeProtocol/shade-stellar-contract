@@ -8,12 +8,8 @@ pub trait ShadeTrait {
     fn add_accepted_token(env: Env, admin: Address, token: Address);
     fn remove_accepted_token(env: Env, admin: Address, token: Address);
     fn is_accepted_token(env: Env, token: Address) -> bool;
-    fn register_merchant(
-        env: Env,
-        merchant_address: Address,
-        manager_address: Address,
-        wasm_hash: soroban_sdk::BytesN<32>,
-    ) -> Address;
+    fn set_account_wasm_hash(env: Env, admin: Address, wasm_hash: soroban_sdk::BytesN<32>);
+    fn register_merchant(env: Env, merchant_address: Address) -> Address;
     fn get_merchant(env: Env, merchant_id: u64) -> Merchant;
     fn is_merchant(env: Env, merchant: Address) -> bool;
 }
