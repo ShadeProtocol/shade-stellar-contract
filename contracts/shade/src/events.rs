@@ -50,3 +50,89 @@ pub fn publish_merchant_registered_event(
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct InvoiceCreatedEvent {
+    pub invoice_id: u64,
+    pub merchant: Address,
+    pub amount: i128,
+    pub token: Address,
+}
+
+pub fn publish_invoice_created_event(
+    env: &Env,
+    invoice_id: u64,
+    merchant: Address,
+    amount: i128,
+    token: Address,
+) {
+    InvoiceCreatedEvent {
+        invoice_id,
+        merchant,
+        amount,
+        token,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct RoleGrantedEvent {
+    pub user: Address,
+    pub role: crate::types::Role,
+    pub timestamp: u64,
+}
+
+pub fn publish_role_granted_event(
+    env: &Env,
+    user: Address,
+    role: crate::types::Role,
+    timestamp: u64,
+) {
+    RoleGrantedEvent {
+        user,
+        role,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct RoleRevokedEvent {
+    pub user: Address,
+    pub role: crate::types::Role,
+    pub timestamp: u64,
+}
+
+pub fn publish_role_revoked_event(
+    env: &Env,
+    user: Address,
+    role: crate::types::Role,
+    timestamp: u64,
+) {
+    RoleRevokedEvent {
+        user,
+        role,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct ContractPausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_contract_paused_event(env: &Env, admin: Address, timestamp: u64) {
+    ContractPausedEvent { admin, timestamp }.publish(env);
+}
+
+#[contractevent]
+pub struct ContractUnpausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_contract_unpaused_event(env: &Env, admin: Address, timestamp: u64) {
+    ContractUnpausedEvent { admin, timestamp }.publish(env);
+}
