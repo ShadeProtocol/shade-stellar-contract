@@ -1,9 +1,10 @@
-use crate::components::core;
+use crate::components::{core, reentrancy};
 use crate::events;
 use crate::types::{DataKey, Role};
 use soroban_sdk::{Address, Env};
 
 pub fn grant_role(env: &Env, admin: &Address, user: &Address, role: Role) {
+    reentrancy::enter(env);
     core::assert_admin(env, admin);
 
     env.storage()
@@ -11,9 +12,11 @@ pub fn grant_role(env: &Env, admin: &Address, user: &Address, role: Role) {
         .set(&DataKey::Role(user.clone(), role.clone()), &true);
 
     events::publish_role_granted_event(env, user.clone(), role, env.ledger().timestamp());
+    reentrancy::exit(env);
 }
 
 pub fn revoke_role(env: &Env, admin: &Address, user: &Address, role: Role) {
+    reentrancy::enter(env);
     core::assert_admin(env, admin);
 
     env.storage()
@@ -21,6 +24,7 @@ pub fn revoke_role(env: &Env, admin: &Address, user: &Address, role: Role) {
         .remove(&DataKey::Role(user.clone(), role.clone()));
 
     events::publish_role_revoked_event(env, user.clone(), role, env.ledger().timestamp());
+    reentrancy::exit(env);
 }
 
 pub fn has_role(env: &Env, user: &Address, role: Role) -> bool {

@@ -1,9 +1,11 @@
+use crate::components::reentrancy;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Merchant, MerchantFilter};
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 pub fn register_merchant(env: &Env, merchant: &Address) {
+    reentrancy::enter(env);
     merchant.require_auth();
 
     if env
@@ -46,6 +48,7 @@ pub fn register_merchant(env: &Env, merchant: &Address) {
         new_id,
         env.ledger().timestamp(),
     );
+    reentrancy::exit(env);
 }
 
 pub fn get_merchant(env: &Env, merchant_id: u64) -> Merchant {

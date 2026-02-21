@@ -1,10 +1,11 @@
-use crate::components::core;
+use crate::components::{core, reentrancy};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::DataKey;
 use soroban_sdk::{panic_with_error, Address, Env};
 
 pub fn pause(env: &Env, admin: &Address) {
+    reentrancy::enter(env);
     admin.require_auth();
 
     if core::get_admin(env) != admin.clone() {
@@ -16,9 +17,11 @@ pub fn pause(env: &Env, admin: &Address) {
     env.storage().persistent().set(&DataKey::Paused, &true);
 
     events::publish_contract_paused_event(env, admin.clone(), env.ledger().timestamp());
+    reentrancy::exit(env);
 }
 
 pub fn unpause(env: &Env, admin: &Address) {
+    reentrancy::enter(env);
     admin.require_auth();
 
     if core::get_admin(env) != admin.clone() {
@@ -30,6 +33,7 @@ pub fn unpause(env: &Env, admin: &Address) {
     env.storage().persistent().set(&DataKey::Paused, &false);
 
     events::publish_contract_unpaused_event(env, admin.clone(), env.ledger().timestamp());
+    reentrancy::exit(env);
 }
 
 pub fn is_paused(env: &Env) -> bool {
