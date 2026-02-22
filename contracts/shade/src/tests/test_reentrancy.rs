@@ -100,38 +100,24 @@ fn test_register_merchant_reentrancy_guard() {
 #[should_panic(expected = "HostError: Error(Contract, #4)")]
 #[test]
 fn test_create_invoice_reentrancy_guard() {
-    let (env, client, _admin) = setup();
+    let (env, client, admin) = setup();
     let contract_id = env.register(Shade, ());
+    let client2 = ShadeClient::new(&env, &contract_id);
+    client2.initialize(&admin);
 
     let merchant = Address::generate(&env);
-    client.register_merchant(&merchant);
+    client2.register_merchant(&merchant);
 
-    // Pre-lock on the SAME contract used by client.
-    // We need the contract_id that client uses. Re-derive it from the original setup.
-    // Instead, lock directly via as_contract on the first registered contract.
-    // Since setup() uses env.register() internally, we do it differently:
-    let env2 = Env::default();
-    env2.mock_all_auths();
-    let cid2 = env2.register(Shade, ());
-    let client2 = ShadeClient::new(&env2, &cid2);
-    let admin2 = Address::generate(&env2);
-    client2.initialize(&admin2);
-
-    let merchant2 = Address::generate(&env2);
-    client2.register_merchant(&merchant2);
-
-    // Pre-lock
-    env2.as_contract(&cid2, || {
-        reentrancy::enter(&env2);
+    env.as_contract(&contract_id, || {
+        reentrancy::enter(&env);
     });
 
     use soroban_sdk::String;
-    // Should panic with Reentrancy (#4).
     client2.create_invoice(
-        &merchant2,
-        &String::from_str(&env2, "test"),
+        &merchant,
+        &String::from_str(&env, "test"),
         &100,
-        &Address::generate(&env2),
+        &Address::generate(&env),
     );
 }
 

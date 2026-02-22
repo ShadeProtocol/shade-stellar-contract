@@ -1,4 +1,4 @@
-use crate::components::merchant;
+use crate::components::{merchant, reentrancy};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus};
@@ -11,6 +11,7 @@ pub fn create_invoice(
     amount: i128,
     token: &Address,
 ) -> u64 {
+    reentrancy::enter(env);
     merchant_address.require_auth();
 
     if amount <= 0 {
@@ -62,6 +63,7 @@ pub fn create_invoice(
         token.clone(),
     );
 
+    reentrancy::exit(env);
     new_invoice_id
 }
 
