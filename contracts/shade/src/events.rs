@@ -52,6 +52,27 @@ pub fn publish_merchant_registered_event(
 }
 
 #[contractevent]
+pub struct MerchantStatusChangedEvent {
+    pub merchant_id: u64,
+    pub active: bool,
+    pub timestamp: u64,
+}
+
+pub fn publish_merchant_status_changed_event(
+    env: &Env,
+    merchant_id: u64,
+    active: bool,
+    timestamp: u64,
+) {
+    MerchantStatusChangedEvent {
+        merchant_id,
+        active,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoiceCreatedEvent {
     pub invoice_id: u64,
     pub merchant: Address,
@@ -172,6 +193,22 @@ pub struct ContractUnpausedEvent {
 
 pub fn publish_contract_unpaused_event(env: &Env, admin: Address, timestamp: u64) {
     ContractUnpausedEvent { admin, timestamp }.publish(env);
+}
+
+#[contractevent]
+pub struct FeeSetEvent {
+    pub token: Address,
+    pub fee: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_fee_set_event(env: &Env, token: Address, fee: i128, timestamp: u64) {
+    FeeSetEvent {
+        token,
+        fee,
+        timestamp,
+    }
+    .publish(env);
 }
 
 #[contractevent]

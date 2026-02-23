@@ -1,4 +1,5 @@
-use crate::components::{core as core_component, reentrancy};
+use crate::components::reentrancy;
+use crate::components::core;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Merchant, MerchantFilter};
@@ -78,8 +79,69 @@ pub fn is_merchant(env: &Env, merchant: &Address) -> bool {
         .has(&DataKey::MerchantId(merchant.clone()))
 }
 
+pub fn set_merchant_status(env: &Env, admin: &Address, merchant_id: u64, status: bool) {
+    core::assert_admin(env, admin);
+
+    if merchant_id == 0 {
+        panic_with_error!(env, ContractError::MerchantNotFound);
+    }
+
+    let merchant_count: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantCount)
+        .unwrap_or(0);
+
+    if merchant_id > merchant_count {
+        panic_with_error!(env, ContractError::MerchantNotFound);
+    }
+
+    let mut merchant: Merchant = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Merchant(merchant_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
+
+    merchant.active = status;
+
+    env.storage()
+        .persistent()
+        .set(&DataKey::Merchant(merchant_id), &merchant);
+
+    events::publish_merchant_status_changed_event(
+        env,
+        merchant_id,
+        status,
+        env.ledger().timestamp(),
+    );
+}
+
+pub fn is_merchant_active(env: &Env, merchant_id: u64) -> bool {
+    if merchant_id == 0 {
+        panic_with_error!(env, ContractError::MerchantNotFound);
+    }
+
+    let merchant_count: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantCount)
+        .unwrap_or(0);
+
+    if merchant_id > merchant_count {
+        panic_with_error!(env, ContractError::MerchantNotFound);
+    }
+
+    let merchant: Merchant = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Merchant(merchant_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
+
+    merchant.active
+}
+
 pub fn verify_merchant(env: &Env, admin: &Address, merchant_id: u64, status: bool) {
-    core_component::assert_admin(env, admin);
+    core::assert_admin(env, admin);
 
     let mut merchant_data = get_merchant(env, merchant_id);
     merchant_data.verified = status;
