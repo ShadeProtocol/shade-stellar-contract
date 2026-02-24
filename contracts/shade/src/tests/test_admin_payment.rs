@@ -2,6 +2,7 @@
 
 use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
+
 use crate::types::{InvoiceStatus, Role};
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{Address, Env, String};
@@ -40,15 +41,28 @@ fn setup_invoice_test() -> (
     let fee: i128 = 100;
     client.set_fee(&admin, &token, &fee);
 
+    // Register merchant and set account
+    client.register_merchant(&merchant);
+
+    // Merchant must be verified for pay_invoice to work
+    let merchant_id: u64 = env.as_contract(&contract_id, || {
+        env.storage()
+            .persistent()
+            .get(&crate::types::DataKey::MerchantId(merchant.clone()))
+            .unwrap()
+    });
+    client.verify_merchant(&admin, &merchant_id, &true);
+
+    // Setup merchant account
+    let merchant_account = Address::generate(&env);
+    client.set_merchant_account(&merchant, &merchant_account);
+
     (env, client, admin, manager, merchant, payer, token)
 }
 
 #[test]
 fn test_admin_role_can_initiate_payment() {
     let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -58,8 +72,8 @@ fn test_admin_role_can_initiate_payment() {
         &token,
     );
 
-    // Admin should have authorization to call pay_invoice_admin
-    let res = client.try_pay_invoice_admin(&admin, &invoice_id);
+    // Admin should have authorization to call pay_invoice
+    let res = client.try_pay_invoice(&admin, &invoice_id);
     // May fail due to insufficient token balance, but not due to authorization
     let _ = res;
 }
@@ -67,9 +81,6 @@ fn test_admin_role_can_initiate_payment() {
 #[test]
 fn test_manager_role_authorization() {
     let (env, client, admin, manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Grant manager role to manager address
     client.grant_role(&admin, &manager, &Role::Manager);
@@ -82,20 +93,16 @@ fn test_manager_role_authorization() {
         &token,
     );
 
-    // Manager should have authorization to call pay_invoice_admin
-    let res = client.try_pay_invoice_admin(&manager, &invoice_id);
+    // Manager should have authorization to call pay_invoice
+    let res = client.try_pay_invoice(&manager, &invoice_id);
     // May fail due to token transfer, but check not authorization
     let _ = res;
 }
 
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
 #[test]
 fn test_payer_without_role_denied_access() {
     let (_env, client, _admin, _manager, merchant, payer, token) = setup_invoice_test();
 
-    // Register merchant
-    client.register_merchant(&merchant);
-
     // Create invoice
     let invoice_id = client.create_invoice(
         &merchant,
@@ -104,18 +111,21 @@ fn test_payer_without_role_denied_access() {
         &token,
     );
 
-    // Payer has no role - should panic with NotAuthorized
-    client.pay_invoice_admin(&payer, &invoice_id);
+    // Payer has no role - should fail with NotAuthorized
+    let expected_error =
+        soroban_sdk::Error::from_contract_error(ContractError::NotAuthorized as u32);
+    let result = client.try_pay_invoice(&payer, &invoice_id);
+    if let Err(Ok(err)) = result {
+        assert_eq!(err, expected_error);
+    } else {
+        panic!("Expected NotAuthorized error, got {:?}", result);
+    }
 }
 
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
 #[test]
 fn test_merchant_cannot_pay_own_invoice() {
     let (_env, client, _admin, _manager, merchant, _payer, token) = setup_invoice_test();
 
-    // Register merchant
-    client.register_merchant(&merchant);
-
     // Create invoice
     let invoice_id = client.create_invoice(
         &merchant,
@@ -124,17 +134,20 @@ fn test_merchant_cannot_pay_own_invoice() {
         &token,
     );
 
-    // Merchant has no admin/manager role - should panic with NotAuthorized
-    client.pay_invoice_admin(&merchant, &invoice_id);
+    // Merchant has no admin/manager role - should fail with NotAuthorized
+    let expected_error =
+        soroban_sdk::Error::from_contract_error(ContractError::NotAuthorized as u32);
+    let result = client.try_pay_invoice(&merchant, &invoice_id);
+    if let Err(Ok(err)) = result {
+        assert_eq!(err, expected_error);
+    } else {
+        panic!("Expected NotAuthorized error, got {:?}", result);
+    }
 }
 
-#[should_panic(expected = "HostError: Error(Contract, #13)")]
 #[test]
 fn test_cannot_pay_already_paid_invoice() {
     let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -156,16 +169,15 @@ fn test_cannot_pay_already_paid_invoice() {
     });
 
     // Attempt to pay again - should fail with InvalidInvoiceStatus
-    client.pay_invoice_admin(&admin, &invoice_id);
+    let expected_error =
+        soroban_sdk::Error::from_contract_error(ContractError::InvalidInvoiceStatus as u32);
+    let result = client.try_pay_invoice(&admin, &invoice_id);
+    assert!(matches!(result, Err(Ok(err)) if err == expected_error));
 }
 
-#[should_panic(expected = "HostError: Error(Contract, #13)")]
 #[test]
 fn test_cannot_pay_cancelled_invoice() {
     let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -186,7 +198,10 @@ fn test_cannot_pay_cancelled_invoice() {
     });
 
     // Attempt to pay - should fail with InvalidInvoiceStatus
-    client.pay_invoice_admin(&admin, &invoice_id);
+    let expected_error =
+        soroban_sdk::Error::from_contract_error(ContractError::InvalidInvoiceStatus as u32);
+    let result = client.try_pay_invoice(&admin, &invoice_id);
+    assert!(matches!(result, Err(Ok(err)) if err == expected_error));
 }
 
 #[test]
@@ -195,16 +210,13 @@ fn test_invoice_not_found() {
 
     let expected_error =
         soroban_sdk::Error::from_contract_error(ContractError::InvoiceNotFound as u32);
-    let result = client.try_pay_invoice_admin(&admin, &999);
+    let result = client.try_pay_invoice(&admin, &999);
     assert!(matches!(result, Err(Ok(err)) if err == expected_error));
 }
 
 #[test]
 fn test_role_revocation_denies_manager() {
-    let (_env, client, admin, manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
+    let (env, client, admin, manager, merchant, _payer, token) = setup_invoice_test();
 
     // Grant and then revoke manager role
     client.grant_role(&admin, &manager, &Role::Manager);
@@ -213,24 +225,21 @@ fn test_role_revocation_denies_manager() {
     // Create invoice
     let invoice_id = client.create_invoice(
         &merchant,
-        &String::from_str(&_env, "Test Invoice"),
+        &String::from_str(&env, "Test Invoice"),
         &1000,
         &token,
     );
 
     // Attempt to pay without role - should fail with NotAuthorized
+    let result = client.try_pay_invoice(&manager, &invoice_id);
     let expected_error =
         soroban_sdk::Error::from_contract_error(ContractError::NotAuthorized as u32);
-    let result = client.try_pay_invoice_admin(&manager, &invoice_id);
     assert!(matches!(result, Err(Ok(err)) if err == expected_error));
 }
 
 #[test]
 fn test_contract_pause_blocks_payment() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
+    let (env, client, admin, _manager, merchant, payer, token) = setup_invoice_test();
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -243,19 +252,16 @@ fn test_contract_pause_blocks_payment() {
     // Pause contract
     client.pause(&admin);
 
-    // Attempt payment - should fail with ContractPaused
+    // Attempt to pay - should fail with ContractPaused
+    let result = client.try_pay_invoice(&payer, &invoice_id);
     let expected_error =
         soroban_sdk::Error::from_contract_error(ContractError::ContractPaused as u32);
-    let result = client.try_pay_invoice_admin(&admin, &invoice_id);
     assert!(matches!(result, Err(Ok(err)) if err == expected_error));
 }
 
 #[test]
 fn test_payment_allowed_after_unpause() {
     let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -270,7 +276,7 @@ fn test_payment_allowed_after_unpause() {
     client.unpause(&admin);
 
     // Payment should now be allowed (though may fail due to insufficient token balance)
-    let res = client.try_pay_invoice_admin(&admin, &invoice_id);
+    let res = client.try_pay_invoice(&admin, &invoice_id);
     // Just verify it doesn't fail with ContractPaused error
     if let Err(err) = res {
         if let Ok(contract_err) = err {
@@ -283,10 +289,7 @@ fn test_payment_allowed_after_unpause() {
 
 #[test]
 fn test_invoice_state_validation() {
-    let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
+    let (env, client, _admin, _manager, merchant, _payer, token) = setup_invoice_test();
 
     // Create invoice
     let invoice_id = client.create_invoice(
@@ -306,9 +309,6 @@ fn test_invoice_state_validation() {
 #[test]
 fn test_multiple_invoices_independent() {
     let (env, client, _admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Create multiple invoices
     let id_1 = client.create_invoice(
@@ -342,9 +342,6 @@ fn test_multiple_invoices_independent() {
 #[test]
 fn test_fee_preservation() {
     let (env, client, admin, _manager, merchant, _payer, token) = setup_invoice_test();
-
-    // Register merchant
-    client.register_merchant(&merchant);
 
     // Set custom fee
     let fee = 250i128;

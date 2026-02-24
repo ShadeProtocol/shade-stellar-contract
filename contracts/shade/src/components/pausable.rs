@@ -5,8 +5,6 @@ use crate::types::DataKey;
 use soroban_sdk::{panic_with_error, Address, Env};
 
 pub fn pause(env: &Env, admin: &Address) {
-    admin.require_auth();
-
     if core::get_admin(env) != admin.clone() {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
@@ -19,8 +17,6 @@ pub fn pause(env: &Env, admin: &Address) {
 }
 
 pub fn unpause(env: &Env, admin: &Address) {
-    admin.require_auth();
-
     if core::get_admin(env) != admin.clone() {
         panic_with_error!(env, ContractError::NotAuthorized);
     }

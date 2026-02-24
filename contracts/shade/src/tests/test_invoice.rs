@@ -76,7 +76,7 @@ fn mark_invoice_paid(
             .persistent()
             .set(&DataKey::Invoice(invoice_id), &invoice);
         env.storage().persistent().set(
-            &DataKey::MerchantBalance(merchant.clone()),
+            &DataKey::MerchantAccount(invoice.merchant_id),
             merchant_account_id,
         );
     });
@@ -471,7 +471,12 @@ fn test_amend_invoice_description_success() {
 
     // Amend the description
     let new_description = String::from_str(&env, "Updated Description");
-    client.amend_invoice(&merchant, &invoice_id, &None, &Some(new_description.clone()));
+    client.amend_invoice(
+        &merchant,
+        &invoice_id,
+        &None,
+        &Some(new_description.clone()),
+    );
 
     // Verify description was updated
     let invoice_after = client.get_invoice(&invoice_id);
@@ -493,7 +498,12 @@ fn test_amend_invoice_both_fields_success() {
 
     // Amend both amount and description
     let new_description = String::from_str(&env, "Updated");
-    client.amend_invoice(&merchant, &invoice_id, &Some(3000), &Some(new_description.clone()));
+    client.amend_invoice(
+        &merchant,
+        &invoice_id,
+        &Some(3000),
+        &Some(new_description.clone()),
+    );
 
     // Verify both fields were updated
     let invoice_after = client.get_invoice(&invoice_id);

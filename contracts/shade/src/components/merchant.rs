@@ -11,8 +11,6 @@ pub trait MerchantAccountContract {
 }
 
 pub fn register_merchant(env: &Env, merchant: &Address) {
-    merchant.require_auth();
-
     if env
         .storage()
         .persistent()
@@ -162,8 +160,6 @@ pub fn is_merchant_verified(env: &Env, merchant_id: u64) -> bool {
 }
 
 pub fn set_merchant_key(env: &Env, merchant: &Address, key: &BytesN<32>) {
-    merchant.require_auth();
-
     if !is_merchant(env, merchant) {
         panic_with_error!(env, ContractError::MerchantNotFound);
     }
@@ -231,19 +227,24 @@ pub fn restrict_merchant_account(
     merchant_address: &Address,
     status: bool,
 ) {
-    caller.require_auth();
-
     if !access_control::has_role(env, caller, Role::Admin)
         && !access_control::has_role(env, caller, Role::Manager)
     {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
-    let account_address: Address = env
+    let account_address: Address = if let Some(id) = env
         .storage()
         .persistent()
-        .get(&DataKey::MerchantAccount(merchant_address.clone()))
-        .unwrap_or_else(|| merchant_address.clone());
+        .get::<_, u64>(&DataKey::MerchantId(merchant_address.clone()))
+    {
+        env.storage()
+            .persistent()
+            .get(&DataKey::MerchantAccount(id))
+            .unwrap_or_else(|| merchant_address.clone())
+    } else {
+        merchant_address.clone()
+    };
 
     let client = MerchantAccountClient::new(env, &account_address);
     client.restrict_account(&status);
@@ -255,9 +256,9 @@ pub fn restrict_merchant_account(
         caller.clone(),
         env.ledger().timestamp(),
     );
-pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
-    merchant.require_auth();
+}
 
+pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
     if !is_merchant(env, merchant) {
         panic_with_error!(env, ContractError::MerchantNotFound);
     }

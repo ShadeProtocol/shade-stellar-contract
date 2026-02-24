@@ -18,31 +18,29 @@ impl ShadeTrait for Shade {
         if env.storage().persistent().has(&DataKey::Admin) {
             panic_with_error!(&env, ContractError::AlreadyInitialized);
         }
-        let contract_info = ContractInfo {
-            admin: admin.clone(),
-            timestamp: env.ledger().timestamp(),
-        };
-        env.storage().persistent().set(&DataKey::Admin, &admin);
-        env.storage()
-            .persistent()
-            .set(&DataKey::ContractInfo, &contract_info);
+        core_component::set_admin(&env, &admin);
+        pausable_component::assert_not_paused(&env);
         events::publish_initialized_event(&env, admin, env.ledger().timestamp());
     }
+
     fn get_admin(env: Env) -> Address {
         core_component::get_admin(&env)
     }
 
     fn add_accepted_token(env: Env, admin: Address, token: Address) {
+        admin.require_auth();
         pausable_component::assert_not_paused(&env);
         admin_component::add_accepted_token(&env, &admin, &token);
     }
 
     fn add_accepted_tokens(env: Env, admin: Address, tokens: Vec<Address>) {
+        admin.require_auth();
         pausable_component::assert_not_paused(&env);
         admin_component::add_accepted_tokens(&env, &admin, &tokens);
     }
 
     fn remove_accepted_token(env: Env, admin: Address, token: Address) {
+        admin.require_auth();
         pausable_component::assert_not_paused(&env);
         admin_component::remove_accepted_token(&env, &admin, &token);
     }
@@ -51,11 +49,14 @@ impl ShadeTrait for Shade {
         admin_component::is_accepted_token(&env, &token)
     }
 
-    fn set_account_wasm_hash(env: Env, admin: Address, wasm_hash: soroban_sdk::BytesN<32>) {
+    fn set_account_wasm_hash(env: Env, admin: Address, wasm_hash: BytesN<32>) {
+        admin.require_auth();
+        pausable_component::assert_not_paused(&env);
         admin_component::set_account_wasm_hash(&env, &admin, &wasm_hash);
     }
 
     fn set_fee(env: Env, admin: Address, token: Address, fee: i128) {
+        admin.require_auth();
         pausable_component::assert_not_paused(&env);
         admin_component::set_fee(&env, &admin, &token, fee);
     }
@@ -65,6 +66,7 @@ impl ShadeTrait for Shade {
     }
 
     fn register_merchant(env: Env, merchant: Address) {
+        merchant.require_auth();
         pausable_component::assert_not_paused(&env);
         merchant_component::register_merchant(&env, &merchant);
     }
@@ -82,6 +84,8 @@ impl ShadeTrait for Shade {
     }
 
     fn set_merchant_status(env: Env, admin: Address, merchant_id: u64, status: bool) {
+        admin.require_auth();
+        pausable_component::assert_not_paused(&env);
         merchant_component::set_merchant_status(&env, &admin, merchant_id, status);
     }
 
@@ -90,6 +94,8 @@ impl ShadeTrait for Shade {
     }
 
     fn verify_merchant(env: Env, admin: Address, merchant_id: u64, status: bool) {
+        admin.require_auth();
+        pausable_component::assert_not_paused(&env);
         merchant_component::verify_merchant(&env, &admin, merchant_id, status);
     }
 
@@ -104,6 +110,7 @@ impl ShadeTrait for Shade {
         amount: i128,
         token: Address,
     ) -> u64 {
+        merchant.require_auth();
         pausable_component::assert_not_paused(&env);
         invoice_component::create_invoice(&env, &merchant, &description, amount, &token)
     }
@@ -112,12 +119,18 @@ impl ShadeTrait for Shade {
         invoice_component::get_invoice(&env, invoice_id)
     }
 
+    fn get_invoices(env: Env, filter: InvoiceFilter) -> Vec<Invoice> {
+        invoice_component::get_invoices(&env, filter)
+    }
+
     fn refund_invoice(env: Env, merchant: Address, invoice_id: u64) {
+        merchant.require_auth();
         pausable_component::assert_not_paused(&env);
         invoice_component::refund_invoice(&env, &merchant, invoice_id);
     }
 
     fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>) {
+        merchant.require_auth();
         merchant_component::set_merchant_key(&env, &merchant, &key);
     }
 
@@ -126,10 +139,12 @@ impl ShadeTrait for Shade {
     }
 
     fn grant_role(env: Env, admin: Address, user: Address, role: Role) {
+        admin.require_auth();
         access_control_component::grant_role(&env, &admin, &user, role);
     }
 
     fn revoke_role(env: Env, admin: Address, user: Address, role: Role) {
+        admin.require_auth();
         access_control_component::revoke_role(&env, &admin, &user, role);
     }
 
@@ -137,20 +152,22 @@ impl ShadeTrait for Shade {
         access_control_component::has_role(&env, &user, role)
     }
 
-    fn get_invoices(env: Env, filter: InvoiceFilter) -> Vec<Invoice> {
-        invoice_component::get_invoices(&env, filter)
-    }
-
     fn refund_invoice_partial(env: Env, invoice_id: u64, amount: i128) {
+        let invoice = invoice_component::get_invoice(&env, invoice_id);
+        let merchant_data = merchant_component::get_merchant(&env, invoice.merchant_id);
+        merchant_data.address.require_auth();
+
         pausable_component::assert_not_paused(&env);
         invoice_component::refund_invoice_partial(&env, invoice_id, amount);
     }
 
     fn pause(env: Env, admin: Address) {
+        admin.require_auth();
         pausable_component::pause(&env, &admin);
     }
 
     fn unpause(env: Env, admin: Address) {
+        admin.require_auth();
         pausable_component::unpause(&env, &admin);
     }
 
@@ -159,6 +176,8 @@ impl ShadeTrait for Shade {
     }
 
     fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin = core_component::get_admin(&env);
+        admin.require_auth();
         upgrade_component::upgrade(&env, &new_wasm_hash);
     }
 
@@ -168,8 +187,13 @@ impl ShadeTrait for Shade {
         merchant_address: Address,
         status: bool,
     ) {
+        caller.require_auth();
         merchant_component::restrict_merchant_account(&env, &caller, &merchant_address, status);
+    }
+
     fn set_merchant_account(env: Env, merchant: Address, account: Address) {
+        merchant.require_auth();
+        pausable_component::assert_not_paused(&env);
         merchant_component::set_merchant_account(&env, &merchant, &account);
     }
 
@@ -178,11 +202,36 @@ impl ShadeTrait for Shade {
     }
 
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64) {
+        payer.require_auth();
         pausable_component::assert_not_paused(&env);
+
+        if !access_control_component::has_role(&env, &payer, Role::Admin)
+            && !access_control_component::has_role(&env, &payer, Role::Manager)
+        {
+            #[cfg(test)]
+            {
+                std::println!(
+                    "Shade::pay_invoice: NotAuthorized for payer {:?}. Admin is {:?}",
+                    payer,
+                    core_component::get_admin(&env)
+                );
+                std::println!(
+                    "Is payer Admin? {}",
+                    access_control_component::has_role(&env, &payer, Role::Admin)
+                );
+                std::println!(
+                    "Is payer Manager? {}",
+                    access_control_component::has_role(&env, &payer, Role::Manager)
+                );
+            }
+            panic_with_error!(&env, ContractError::NotAuthorized);
+        }
+
         invoice_component::pay_invoice(&env, &payer, invoice_id);
     }
 
     fn void_invoice(env: Env, merchant: Address, invoice_id: u64) {
+        merchant.require_auth();
         pausable_component::assert_not_paused(&env);
         invoice_component::void_invoice(&env, &merchant, invoice_id);
     }
@@ -194,6 +243,7 @@ impl ShadeTrait for Shade {
         new_amount: Option<i128>,
         new_description: Option<String>,
     ) {
+        merchant.require_auth();
         pausable_component::assert_not_paused(&env);
         invoice_component::amend_invoice(&env, &merchant, invoice_id, new_amount, new_description);
     }

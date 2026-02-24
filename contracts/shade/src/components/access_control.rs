@@ -35,7 +35,6 @@ pub fn has_role(env: &Env, user: &Address, role: Role) -> bool {
 }
 
 pub fn assert_has_role(env: &Env, user: &Address, role: Role) {
-    user.require_auth();
     if !has_role(env, user, role) {
         use crate::errors::ContractError;
         use soroban_sdk::panic_with_error;

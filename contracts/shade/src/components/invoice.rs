@@ -1,8 +1,7 @@
-use crate::components::{access_control, merchant};
 use crate::components::{admin, merchant};
 use crate::errors::ContractError;
 use crate::events;
-use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus, Role};
+use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus};
 use account::account::MerchantAccountClient;
 
 use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
@@ -16,8 +15,6 @@ pub fn create_invoice(
     amount: i128,
     token: &Address,
 ) -> u64 {
-    merchant_address.require_auth();
-
     if amount <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
@@ -79,8 +76,6 @@ pub fn get_invoice(env: &Env, invoice_id: u64) -> Invoice {
 }
 
 pub fn refund_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
-    merchant_address.require_auth();
-
     let invoice = get_invoice(env, invoice_id);
 
     let merchant_id: u64 = env
@@ -175,7 +170,6 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
     let mut invoice = get_invoice(env, invoice_id);
 
     let merchant_address = merchant::get_merchant(env, invoice.merchant_id).address;
-    merchant_address.require_auth();
 
     if invoice.status != InvoiceStatus::Paid && invoice.status != InvoiceStatus::PartiallyRefunded {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
@@ -200,7 +194,7 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
     let merchant_account: Address = env
         .storage()
         .persistent()
-        .get(&DataKey::MerchantBalance(merchant_address.clone()))
+        .get(&DataKey::MerchantAccount(invoice.merchant_id))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantAccountNotFound));
     let token = invoice.token.clone();
     MerchantAccountClient::new(env, &merchant_account).refund(&token, &amount, &payer);
@@ -232,8 +226,6 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
 }
 
 pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) {
-    payer.require_auth();
-
     // Get invoice
     let mut invoice = get_invoice(env, invoice_id);
 
@@ -285,17 +277,16 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) {
     events::publish_invoice_paid_event(
         env,
         invoice_id,
+        invoice.merchant_id,
         payer.clone(),
         invoice.amount,
         fee_amount,
-        merchant_amount,
+        invoice.token.clone(),
         env.ledger().timestamp(),
     );
 }
 
 pub fn void_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
-    merchant_address.require_auth();
-
     // Get invoice
     let mut invoice = get_invoice(env, invoice_id);
 
@@ -340,8 +331,6 @@ pub fn amend_invoice(
     new_amount: Option<i128>,
     new_description: Option<String>,
 ) {
-    merchant_address.require_auth();
-
     // Get invoice
     let mut invoice = get_invoice(env, invoice_id);
 

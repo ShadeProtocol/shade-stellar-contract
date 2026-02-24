@@ -10,8 +10,11 @@ pub fn get_admin(env: &Env) -> Address {
 }
 
 pub fn assert_admin(env: &Env, admin: &Address) {
-    admin.require_auth();
     if *admin != get_admin(env) {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
+}
+
+pub fn set_admin(env: &Env, admin: &Address) {
+    env.storage().persistent().set(&DataKey::Admin, admin);
 }

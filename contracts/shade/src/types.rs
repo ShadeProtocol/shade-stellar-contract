@@ -21,7 +21,6 @@ pub enum DataKey {
     ReentrancyStatus,
     AccountWasmHash,
     Role(Address, Role),
-    MerchantAccount(Address),
 }
 
 #[contracttype]
