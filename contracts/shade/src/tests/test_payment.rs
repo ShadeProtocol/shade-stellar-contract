@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use soroban_sdk::testutils::{Address as _, Events as _};
-use soroban_sdk::{token, Address, Env, String};
+use soroban_sdk::{token, Address, Env, String, Vec};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -214,7 +214,8 @@ fn test_payment_token_not_accepted() {
     let unaccepted_token = env.register_stellar_asset_contract_v2(unaccepted_token_admin.clone());
 
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
+    let invoice_id =
+        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -346,4 +347,96 @@ fn test_fee_calculation_accuracy() {
 
     assert_eq!(shade_balance, 100); // 1% of 10000 = 100
     assert_eq!(merchant_balance, 9900); // 99% of 10000 = 9900
+}
+
+#[test]
+fn test_batch_payment_success() {
+    let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let first_invoice_id = shade_client.create_invoice(
+        &merchant,
+        &String::from_str(&env, "Invoice 1"),
+        &600,
+        &token,
+    );
+    let second_invoice_id = shade_client.create_invoice(
+        &merchant,
+        &String::from_str(&env, "Invoice 2"),
+        &400,
+        &token,
+    );
+
+    let payer = Address::generate(&env);
+    let token_admin = token::StellarAssetClient::new(&env, &token);
+    token_admin.mint(&payer, &1000);
+
+    let mut invoice_ids = Vec::new(&env);
+    invoice_ids.push_back(first_invoice_id);
+    invoice_ids.push_back(second_invoice_id);
+
+    shade_client.pay_invoices_batch(&payer, &invoice_ids);
+
+    let first_invoice = shade_client.get_invoice(&first_invoice_id);
+    let second_invoice = shade_client.get_invoice(&second_invoice_id);
+    assert_eq!(first_invoice.status, InvoiceStatus::Paid);
+    assert_eq!(second_invoice.status, InvoiceStatus::Paid);
+    assert_eq!(first_invoice.payer, Some(payer.clone()));
+    assert_eq!(second_invoice.payer, Some(payer.clone()));
+
+    let token_client = token::TokenClient::new(&env, &token);
+    assert_eq!(token_client.balance(&shade_contract_id), 50);
+    assert_eq!(token_client.balance(&merchant_account), 950);
+}
+
+#[test]
+fn test_batch_payment_is_atomic_when_any_invoice_fails() {
+    let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let first_invoice_id = shade_client.create_invoice(
+        &merchant,
+        &String::from_str(&env, "Invoice 1"),
+        &700,
+        &token,
+    );
+    let second_invoice_id = shade_client.create_invoice(
+        &merchant,
+        &String::from_str(&env, "Invoice 2"),
+        &700,
+        &token,
+    );
+
+    let payer = Address::generate(&env);
+    let token_admin = token::StellarAssetClient::new(&env, &token);
+    token_admin.mint(&payer, &1000);
+
+    let mut invoice_ids = Vec::new(&env);
+    invoice_ids.push_back(first_invoice_id);
+    invoice_ids.push_back(second_invoice_id);
+
+    let result = shade_client.try_pay_invoices_batch(&payer, &invoice_ids);
+    assert!(result.is_err());
+
+    let first_invoice = shade_client.get_invoice(&first_invoice_id);
+    let second_invoice = shade_client.get_invoice(&second_invoice_id);
+    assert_eq!(first_invoice.status, InvoiceStatus::Pending);
+    assert_eq!(second_invoice.status, InvoiceStatus::Pending);
+    assert_eq!(first_invoice.payer, None);
+    assert_eq!(second_invoice.payer, None);
+
+    let token_client = token::TokenClient::new(&env, &token);
+    assert_eq!(token_client.balance(&shade_contract_id), 0);
+    assert_eq!(token_client.balance(&merchant_account), 0);
+    assert_eq!(token_client.balance(&payer), 1000);
 }

@@ -208,6 +208,11 @@ impl ShadeTrait for Shade {
         invoice_component::pay_invoice(&env, &payer, invoice_id);
     }
 
+    fn pay_invoices_batch(env: Env, payer: Address, invoice_ids: Vec<u64>) {
+        pausable_component::assert_not_paused(&env);
+        invoice_component::pay_invoices_batch(&env, &payer, invoice_ids);
+    }
+
     fn void_invoice(env: Env, merchant: Address, invoice_id: u64) {
         pausable_component::assert_not_paused(&env);
         invoice_component::void_invoice(&env, &merchant, invoice_id);

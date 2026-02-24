@@ -316,32 +316,31 @@ pub fn publish_account_restricted_event(
         merchant,
         status,
         caller,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoicePaidEvent {
     pub invoice_id: u64,
-    pub merchant_id: u64,
     pub payer: Address,
     pub amount: i128,
     pub fee: i128,
-    pub token: Address,
+    pub merchant_amount: i128,
     pub timestamp: u64,
 }
 
 pub fn publish_invoice_paid_event(
     env: &Env,
     invoice_id: u64,
-    merchant_id: u64,
     payer: Address,
     amount: i128,
     fee: i128,
-    token: Address,
+    merchant_amount: i128,
     timestamp: u64,
 ) {
     InvoicePaidEvent {
-        merchant_id,
-        payer,
-        amount,
-        fee,
-        token,
         invoice_id,
         payer,
         amount,
