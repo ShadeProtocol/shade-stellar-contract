@@ -1,5 +1,5 @@
-use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal};
 use crate::events;
+use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal};
 
 pub fn deploy_account(
     env: &Env,

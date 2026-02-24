@@ -61,7 +61,7 @@ impl ShadeTrait for Shade {
 
     fn register_merchant(env: Env, merchant: Address) {
         pausable_component::assert_not_paused(&env);
-        merchant_component::register_merchant(&env, merchant);
+        merchant_component::register_merchant(&env, &merchant);
     }
 
     fn get_merchant(env: Env, merchant_id: u64) -> Merchant {
