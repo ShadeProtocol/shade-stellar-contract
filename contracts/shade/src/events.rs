@@ -332,6 +332,7 @@ pub struct InvoicePaidEvent {
     pub timestamp: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_invoice_paid_event(
     env: &Env,
     invoice_id: u64,
