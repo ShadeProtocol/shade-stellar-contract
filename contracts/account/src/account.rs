@@ -1,5 +1,9 @@
 use crate::errors::ContractError;
-use crate::events::{publish_account_initialized_event, publish_token_added_event};
+use crate::events::publish_withdrawal_to_event;
+use crate::events::{
+    publish_account_initialized_event, publish_account_restricted_event,
+    publish_account_verified_event, publish_refund_processed_event, publish_token_added_event,
+};
 use crate::interface::MerchantAccountTrait;
 use crate::types::{AccountInfo, DataKey, TokenBalance};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, Env, Vec};
@@ -19,6 +23,13 @@ fn get_tracked_tokens(env: &Env) -> Vec<Address> {
         .persistent()
         .get(&DataKey::TrackedTokens)
         .unwrap_or_else(|| Vec::new(env))
+}
+
+fn is_restricted_account(env: &Env) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Restricted)
+        .unwrap_or(false)
 }
 
 fn token_exists(tracked_tokens: &Vec<Address>, token: &Address) -> bool {
@@ -79,6 +90,21 @@ impl MerchantAccountTrait for MerchantAccount {
         publish_token_added_event(&env, token, env.ledger().timestamp());
     }
 
+    fn refund(env: Env, token: Address, amount: i128, to: Address) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        if is_restricted_account(&env) {
+            panic_with_error!(&env, ContractError::AccountRestricted);
+        }
+
+        let contract_address = env.current_contract_address();
+        let token_client = token::TokenClient::new(&env, &token);
+        token_client.transfer(&contract_address, &to, &amount);
+
+        publish_refund_processed_event(&env, token, amount, to, env.ledger().timestamp());
+    }
+
     fn has_token(env: Env, token: Address) -> bool {
         let tracked_tokens = get_tracked_tokens(&env);
         token_exists(&tracked_tokens, &token)
@@ -103,5 +129,55 @@ impl MerchantAccountTrait for MerchantAccount {
         }
 
         balances
+    }
+
+    fn verify_account(env: Env) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        env.storage().persistent().set(&DataKey::Verified, &true);
+        publish_account_verified_event(&env, env.ledger().timestamp());
+    }
+
+    fn is_verified_account(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Verified)
+            .unwrap_or(false)
+    }
+
+    fn restrict_account(env: Env, status: bool) {
+        let manager = get_manager(&env);
+        manager.require_auth();
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Restricted, &status);
+        publish_account_restricted_event(&env, status, env.ledger().timestamp());
+    }
+
+    fn is_restricted_account(env: Env) -> bool {
+        is_restricted_account(&env)
+    }
+
+    fn withdraw_to(env: Env, token: Address, amount: i128, recipient: Address) {
+        // Only the merchant can initiate withdrawals to another account
+        let merchant: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Merchant)
+            .unwrap_or_else(|| panic_with_error!(&env, ContractError::NotInitialized));
+        merchant.require_auth();
+
+        let token_client = token::TokenClient::new(&env, &token);
+        let current_balance = token_client.balance(&env.current_contract_address());
+
+        if amount > current_balance {
+            panic_with_error!(&env, ContractError::InsufficientBalance);
+        }
+
+        token_client.transfer(&env.current_contract_address(), &recipient, &amount);
+
+        publish_withdrawal_to_event(&env, token, recipient, amount, env.ledger().timestamp());
     }
 }
