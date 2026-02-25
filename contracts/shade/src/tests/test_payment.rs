@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
-use soroban_sdk::testutils::{Address as _, Events as _};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{token, Address, Env, String};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
@@ -142,7 +142,7 @@ fn test_payment_with_maximum_fee() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #15)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_payment_invoice_already_paid() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 
@@ -214,7 +214,8 @@ fn test_payment_token_not_accepted() {
     let unaccepted_token = env.register_stellar_asset_contract_v2(unaccepted_token_admin.clone());
 
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
+    let invoice_id =
+        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -226,7 +227,7 @@ fn test_payment_token_not_accepted() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #20)")]
 fn test_payment_merchant_account_not_set() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 
@@ -346,4 +347,87 @@ fn test_fee_calculation_accuracy() {
 
     assert_eq!(shade_balance, 100); // 1% of 10000 = 100
     assert_eq!(merchant_balance, 9900); // 99% of 10000 = 9900
+}
+
+#[test]
+fn test_partial_payment_two_equal_steps_reaches_paid() {
+    let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let description = String::from_str(&env, "Partial Payment Invoice");
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+
+    let customer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
+    let mid_invoice = shade_client.get_invoice(&invoice_id);
+    assert_eq!(mid_invoice.status, InvoiceStatus::PartiallyPaid);
+    assert_eq!(mid_invoice.amount_paid, 500);
+    assert!(mid_invoice.date_paid.is_none());
+
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
+    let final_invoice = shade_client.get_invoice(&invoice_id);
+    assert_eq!(final_invoice.status, InvoiceStatus::Paid);
+    assert_eq!(final_invoice.amount_paid, 1000);
+    assert!(final_invoice.date_paid.is_some());
+
+    let token_balance_client = token::TokenClient::new(&env, &token);
+    let shade_balance = token_balance_client.balance(&shade_contract_id);
+    let merchant_balance = token_balance_client.balance(&merchant_account);
+
+    assert_eq!(shade_balance, 50);
+    assert_eq!(merchant_balance, 950);
+}
+
+#[test]
+fn test_partial_payment_collects_fees_proportionally_each_step() {
+    let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let description = String::from_str(&env, "Proportional Fee Invoice");
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+
+    let customer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
+    let token_balance_client = token::TokenClient::new(&env, &token);
+    assert_eq!(token_balance_client.balance(&shade_contract_id), 25);
+    assert_eq!(token_balance_client.balance(&merchant_account), 475);
+
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
+    assert_eq!(token_balance_client.balance(&shade_contract_id), 50);
+    assert_eq!(token_balance_client.balance(&merchant_account), 950);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #7)")]
+fn test_partial_payment_cannot_exceed_requested_amount() {
+    let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+
+    let description = String::from_str(&env, "Overpay Guard Invoice");
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+
+    let customer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1500);
+
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &700);
+    shade_client.pay_invoice_partial(&customer, &invoice_id, &400);
 }
