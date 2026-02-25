@@ -26,6 +26,7 @@ pub trait ShadeTrait {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
     ) -> u64;
     #[allow(clippy::too_many_arguments)]
     fn create_invoice_signed(
@@ -35,6 +36,7 @@ pub trait ShadeTrait {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
         nonce: BytesN<32>,
         signature: BytesN<64>,
     ) -> u64;

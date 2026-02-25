@@ -13,6 +13,7 @@ fn build_message(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
 ) -> Bytes {
     let mut msg = Bytes::new(env);
@@ -22,6 +23,7 @@ fn build_message(
     msg.append(&Bytes::from_slice(env, &amount.to_be_bytes()));
     msg.append(&token.clone().to_xdr(env));
     msg.append(&description.clone().to_xdr(env));
+    msg.append(&Bytes::from_slice(env, &expires_at.unwrap_or(0).to_be_bytes()));
     msg
 }
 
@@ -36,6 +38,7 @@ pub fn verify_invoice_signature(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
     signature: &BytesN<64>,
 ) {
@@ -45,7 +48,7 @@ pub fn verify_invoice_signature(
         .get(&DataKey::MerchantKey(merchant.clone()))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantKeyNotFound));
 
-    let message = build_message(env, merchant, description, amount, token, nonce);
+    let message = build_message(env, merchant, description, amount, token, expires_at, nonce);
 
     env.crypto().ed25519_verify(&key, &message, signature);
 }

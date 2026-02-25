@@ -104,9 +104,10 @@ impl ShadeTrait for Shade {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        invoice_component::create_invoice(&env, &merchant, &description, amount, &token)
+        invoice_component::create_invoice(&env, &merchant, &description, amount, &token, &expires_at)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -117,6 +118,7 @@ impl ShadeTrait for Shade {
         description: String,
         amount: i128,
         token: Address,
+        expires_at: Option<u64>,
         nonce: BytesN<32>,
         signature: BytesN<64>,
     ) -> u64 {
@@ -128,6 +130,7 @@ impl ShadeTrait for Shade {
             &description,
             amount,
             &token,
+            &expires_at,
             &nonce,
             &signature,
         )

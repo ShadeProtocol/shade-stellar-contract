@@ -116,6 +116,7 @@ fn test_create_invoice_signed_by_manager_success() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -152,6 +153,7 @@ fn test_create_invoice_signed_by_admin_success() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -189,6 +191,7 @@ fn test_create_invoice_signed_nonce_replay_fails() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -200,6 +203,7 @@ fn test_create_invoice_signed_nonce_replay_fails() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -225,6 +229,7 @@ fn test_create_invoice_signed_different_nonces_succeed() {
         &description,
         &amount,
         &token,
+        &None,
         &generate_nonce(&env),
         &generate_signature(&env),
     );
@@ -235,6 +240,7 @@ fn test_create_invoice_signed_different_nonces_succeed() {
         &description,
         &amount,
         &token,
+        &None,
         &generate_nonce_2(&env),
         &generate_signature(&env),
     );
@@ -261,6 +267,7 @@ fn test_create_invoice_signed_unauthorized_caller_fails() {
         &description,
         &500,
         &token,
+        &None,
         &generate_nonce(&env),
         &generate_signature(&env),
     );
@@ -286,6 +293,7 @@ fn test_create_invoice_signed_unregistered_merchant_fails() {
         &description,
         &500,
         &token,
+        &None,
         &generate_nonce(&env),
         &generate_signature(&env),
     );
@@ -311,6 +319,7 @@ fn test_create_invoice_signed_invalid_amount_fails() {
         &description,
         &0,
         &token,
+        &None,
         &generate_nonce(&env),
         &generate_signature(&env),
     );
@@ -338,6 +347,7 @@ fn test_create_invoice_signed_when_paused_fails() {
         &description,
         &500,
         &token,
+        &None,
         &generate_nonce(&env),
         &generate_signature(&env),
     );

@@ -53,6 +53,7 @@ pub struct Invoice {
     pub payer: Option<Address>,
     pub date_created: u64,
     pub date_paid: Option<u64>,
+    pub expires_at: Option<u64>,
     pub amount_refunded: i128,
 }
 

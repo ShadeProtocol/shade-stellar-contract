@@ -44,7 +44,7 @@ fn test_successful_payment_with_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -86,7 +86,7 @@ fn test_payment_with_zero_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -122,7 +122,7 @@ fn test_payment_with_maximum_fee() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -156,7 +156,7 @@ fn test_payment_invoice_already_paid() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -185,7 +185,7 @@ fn test_payment_insufficient_funds() {
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer with insufficient balance (only 500)
     let customer = Address::generate(&env);
@@ -215,7 +215,7 @@ fn test_payment_token_not_accepted() {
 
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id =
-        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address());
+        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address(), &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -239,7 +239,7 @@ fn test_payment_merchant_account_not_set() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -264,7 +264,7 @@ fn test_payment_payer_authorization() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -293,7 +293,7 @@ fn test_payment_updates_invoice_timestamps() {
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Get invoice before payment
     let invoice_before = shade_client.get_invoice(&invoice_id);
@@ -330,7 +330,7 @@ fn test_fee_calculation_accuracy() {
 
     // Create invoice for 10000 units
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &10000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &10000, &token, &None);
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);

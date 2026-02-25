@@ -29,6 +29,7 @@ fn build_test_message(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
 ) -> alloc::vec::Vec<u8> {
     let mut msg = Bytes::new(env);
@@ -38,6 +39,7 @@ fn build_test_message(
     msg.append(&Bytes::from_slice(env, &amount.to_be_bytes()));
     msg.append(&token.clone().to_xdr(env));
     msg.append(&description.clone().to_xdr(env));
+    msg.append(&Bytes::from_slice(env, &expires_at.unwrap_or(0).to_be_bytes()));
 
     let mut result = alloc::vec![0u8; msg.len() as usize];
     for i in 0..msg.len() {
@@ -68,6 +70,7 @@ fn sign_invoice(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
 ) -> BytesN<64> {
     let message = build_test_message(
@@ -77,6 +80,7 @@ fn sign_invoice(
         description,
         amount,
         token,
+        expires_at,
         nonce,
     );
     let sig = keypair.signing_key.sign(&message);
@@ -127,6 +131,7 @@ fn test_create_invoice_signed_manager_success() {
         &description,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -136,6 +141,7 @@ fn test_create_invoice_signed_manager_success() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -172,6 +178,7 @@ fn test_create_invoice_signed_admin_success() {
         &description,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -181,6 +188,7 @@ fn test_create_invoice_signed_admin_success() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -216,6 +224,7 @@ fn test_create_invoice_signed_guest_unauthorized() {
         &description,
         1000,
         &token,
+        &None,
         &nonce,
     );
 
@@ -225,6 +234,7 @@ fn test_create_invoice_signed_guest_unauthorized() {
         &description,
         &1000,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -257,6 +267,7 @@ fn test_create_invoice_signed_operator_unauthorized() {
         &description,
         1000,
         &token,
+        &None,
         &nonce,
     );
 
@@ -266,6 +277,7 @@ fn test_create_invoice_signed_operator_unauthorized() {
         &description,
         &1000,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -300,6 +312,7 @@ fn test_create_invoice_signed_invalid_amount_zero() {
         &description,
         &0,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -333,6 +346,7 @@ fn test_create_invoice_signed_invalid_amount_negative() {
         &description,
         &-1000,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -361,6 +375,7 @@ fn test_create_invoice_signed_unregistered_merchant() {
         &description,
         &1000,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -404,6 +419,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         1000,
         &token,
+        &None,
         &nonce1,
     );
     let invoice_id_1 = client.create_invoice_signed(
@@ -412,6 +428,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         &1000,
         &token,
+        &None,
         &nonce1,
         &sig1,
     );
@@ -425,6 +442,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         2000,
         &token,
+        &None,
         &nonce2,
     );
     let invoice_id_2 = client.create_invoice_signed(
@@ -433,6 +451,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         &2000,
         &token,
+        &None,
         &nonce2,
         &sig2,
     );
@@ -446,6 +465,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         3000,
         &token,
+        &None,
         &nonce3,
     );
     let invoice_id_3 = client.create_invoice_signed(
@@ -454,6 +474,7 @@ fn test_create_invoice_signed_multiple_invoices() {
         &description,
         &3000,
         &token,
+        &None,
         &nonce3,
         &sig3,
     );

@@ -47,6 +47,7 @@ fn build_test_message(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
 ) -> alloc::vec::Vec<u8> {
     let mut msg = Bytes::new(env);
@@ -56,6 +57,7 @@ fn build_test_message(
     msg.append(&Bytes::from_slice(env, &amount.to_be_bytes()));
     msg.append(&token.clone().to_xdr(env));
     msg.append(&description.clone().to_xdr(env));
+    msg.append(&Bytes::from_slice(env, &expires_at.unwrap_or(0).to_be_bytes()));
 
     let mut result = alloc::vec![0u8; msg.len() as usize];
     for i in 0..msg.len() {
@@ -72,6 +74,7 @@ fn sign_invoice(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
 ) -> BytesN<64> {
     let message = build_test_message(
@@ -81,6 +84,7 @@ fn sign_invoice(
         description,
         amount,
         token,
+        expires_at,
         nonce,
     );
     let sig = keypair.signing_key.sign(&message);
@@ -129,6 +133,7 @@ fn test_valid_signature() {
         &description,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -138,6 +143,7 @@ fn test_valid_signature() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -181,6 +187,7 @@ fn test_invalid_signature_tampered_amount() {
         &description,
         original_amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -191,6 +198,7 @@ fn test_invalid_signature_tampered_amount() {
         &description,
         &tampered_amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -227,6 +235,7 @@ fn test_invalid_signature_tampered_description() {
         &original_desc,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -237,6 +246,7 @@ fn test_invalid_signature_tampered_description() {
         &tampered_desc,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -271,6 +281,7 @@ fn test_replay_attack_same_nonce() {
         &description,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -281,6 +292,7 @@ fn test_replay_attack_same_nonce() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -292,6 +304,7 @@ fn test_replay_attack_same_nonce() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -336,6 +349,7 @@ fn test_wrong_merchant_signature() {
         &description,
         amount,
         &token,
+        &None,
         &nonce,
     );
 
@@ -346,6 +360,7 @@ fn test_wrong_merchant_signature() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature_a,
     );
@@ -380,6 +395,7 @@ fn test_no_public_key() {
         &description,
         &amount,
         &token,
+        &None,
         &nonce,
         &signature,
     );
@@ -426,6 +442,7 @@ fn test_nonce_independence_per_merchant() {
         &description,
         amount,
         &token,
+        &None,
         &shared_nonce,
     );
     let id_a = client.create_invoice_signed(
@@ -434,6 +451,7 @@ fn test_nonce_independence_per_merchant() {
         &description,
         &amount,
         &token,
+        &None,
         &shared_nonce,
         &sig_a,
     );
@@ -447,6 +465,7 @@ fn test_nonce_independence_per_merchant() {
         &description,
         amount,
         &token,
+        &None,
         &shared_nonce,
     );
     let id_b = client.create_invoice_signed(
@@ -455,6 +474,7 @@ fn test_nonce_independence_per_merchant() {
         &description,
         &amount,
         &token,
+        &None,
         &shared_nonce,
         &sig_b,
     );

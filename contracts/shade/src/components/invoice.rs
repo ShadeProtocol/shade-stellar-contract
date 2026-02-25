@@ -17,6 +17,7 @@ pub fn create_invoice(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
 ) -> u64 {
     merchant_address.require_auth();
     if amount <= 0 {
@@ -46,6 +47,7 @@ pub fn create_invoice(
         payer: None,
         date_created: env.ledger().timestamp(),
         date_paid: None,
+        expires_at: *expires_at,
         amount_refunded: 0,
     };
     env.storage()
@@ -72,6 +74,7 @@ pub fn create_invoice_signed(
     description: &String,
     amount: i128,
     token: &Address,
+    expires_at: &Option<u64>,
     nonce: &BytesN<32>,
     signature: &BytesN<64>,
 ) -> u64 {
@@ -100,6 +103,7 @@ pub fn create_invoice_signed(
         description,
         amount,
         token,
+        expires_at,
         nonce,
         signature,
     );
@@ -132,6 +136,7 @@ pub fn create_invoice_signed(
         payer: None,
         date_created: env.ledger().timestamp(),
         date_paid: None,
+        expires_at: *expires_at,
         amount_refunded: 0,
     };
 
@@ -313,6 +318,12 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
 
     if invoice.status != InvoiceStatus::Pending {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    if let Some(expires_at) = invoice.expires_at {
+        if env.ledger().timestamp() > expires_at {
+            panic_with_error!(env, ContractError::InvoiceExpired);
+        }
     }
 
     // Validate that the invoice token is accepted

@@ -24,4 +24,5 @@ pub enum ContractError {
     WasmHashNotSet = 18,
     InvoiceAlreadyPaid = 19,
     MerchantAccountNotSet = 20,
+    InvoiceExpired = 21,
 }
