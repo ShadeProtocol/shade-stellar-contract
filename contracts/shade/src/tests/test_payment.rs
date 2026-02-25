@@ -142,7 +142,7 @@ fn test_payment_with_maximum_fee() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #15)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_payment_invoice_already_paid() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 
@@ -227,7 +227,7 @@ fn test_payment_token_not_accepted() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #14)")]
+#[should_panic(expected = "HostError: Error(Contract, #20)")]
 fn test_payment_merchant_account_not_set() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 

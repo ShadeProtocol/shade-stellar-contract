@@ -324,28 +324,32 @@ pub fn publish_account_restricted_event(
 #[contractevent]
 pub struct InvoicePaidEvent {
     pub invoice_id: u64,
+    pub merchant_id: u64,
     pub payer: Address,
     pub amount: i128,
     pub fee: i128,
-    pub merchant_amount: i128,
+    pub token: Address,
     pub timestamp: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_invoice_paid_event(
     env: &Env,
     invoice_id: u64,
+    merchant_id: u64,
     payer: Address,
     amount: i128,
     fee: i128,
-    merchant_amount: i128,
+    token: Address,
     timestamp: u64,
 ) {
     InvoicePaidEvent {
         invoice_id,
+        merchant_id,
         payer,
         amount,
         fee,
-        merchant_amount,
+        token,
         timestamp,
     }
     .publish(env);
@@ -394,6 +398,27 @@ pub fn publish_invoice_amended_event(
         merchant,
         old_amount,
         new_amount,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct NonceInvalidatedEvent {
+    pub merchant: Address,
+    pub nonce: BytesN<32>,
+    pub timestamp: u64,
+}
+
+pub fn publish_nonce_invalidated_event(
+    env: &Env,
+    merchant: Address,
+    nonce: BytesN<32>,
+    timestamp: u64,
+) {
+    NonceInvalidatedEvent {
+        merchant,
+        nonce,
         timestamp,
     }
     .publish(env);

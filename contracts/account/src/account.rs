@@ -3,6 +3,7 @@ use crate::events::publish_withdrawal_to_event;
 use crate::events::{
     publish_account_initialized_event, publish_account_restricted_event,
     publish_account_verified_event, publish_refund_processed_event, publish_token_added_event,
+    publish_withdrawal_to_event,
 };
 use crate::interface::MerchantAccountTrait;
 use crate::types::{AccountInfo, DataKey, TokenBalance};

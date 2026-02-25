@@ -262,6 +262,7 @@ pub fn restrict_merchant_account(
         env.ledger().timestamp(),
     );
 }
+
 pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
     merchant.require_auth();
 

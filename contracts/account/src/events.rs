@@ -1,12 +1,10 @@
 use soroban_sdk::{contractevent, Address, Env};
-
 #[contractevent]
 pub struct AccountInitalizedEvent {
     pub merchant: Address,
     pub merchant_id: u64,
     pub timestamp: u64,
 }
-
 pub fn publish_account_initialized_event(
     env: &Env,
     merchant: Address,
@@ -20,26 +18,29 @@ pub fn publish_account_initialized_event(
     }
     .publish(env);
 }
-
 #[contractevent]
 pub struct TokenAddedEvent {
     pub token: Address,
     pub timestamp: u64,
 }
-
 pub fn publish_token_added_event(env: &Env, token: Address, timestamp: u64) {
     TokenAddedEvent { token, timestamp }.publish(env);
 }
-
 #[contractevent]
 pub struct AccountVerified {
     pub timestamp: u64,
 }
-
 pub fn publish_account_verified_event(env: &Env, timestamp: u64) {
     AccountVerified { timestamp }.publish(env);
 }
-
+#[contractevent]
+pub struct AccountRestricted {
+    pub status: bool,
+    pub timestamp: u64,
+}
+pub fn publish_account_restricted_event(env: &Env, status: bool, timestamp: u64) {
+    AccountRestricted { status, timestamp }.publish(env);
+}
 #[contractevent]
 pub struct WithdrawalToEvent {
     pub token: Address,
@@ -47,7 +48,6 @@ pub struct WithdrawalToEvent {
     pub amount: i128,
     pub timestamp: u64,
 }
-
 pub fn publish_withdrawal_to_event(
     env: &Env,
     token: Address,
@@ -63,7 +63,6 @@ pub fn publish_withdrawal_to_event(
     }
     .publish(env);
 }
-
 #[contractevent]
 pub struct RefundProcessedEvent {
     pub token: Address,
@@ -71,7 +70,6 @@ pub struct RefundProcessedEvent {
     pub recipient: Address,
     pub timestamp: u64,
 }
-
 pub fn publish_refund_processed_event(
     env: &Env,
     token: Address,
@@ -87,13 +85,25 @@ pub fn publish_refund_processed_event(
     }
     .publish(env);
 }
-
 #[contractevent]
-pub struct AccountRestricted {
-    pub status: bool,
+pub struct WithdrawalEvent {
+    pub token: Address,
+    pub amount: i128,
+    pub recipient: Address,
     pub timestamp: u64,
 }
-
-pub fn publish_account_restricted_event(env: &Env, status: bool, timestamp: u64) {
-    AccountRestricted { status, timestamp }.publish(env);
+pub fn publish_withdrawal_event(
+    env: &Env,
+    token: Address,
+    amount: i128,
+    recipient: Address,
+    timestamp: u64,
+) {
+    WithdrawalEvent {
+        token,
+        amount,
+        recipient,
+        timestamp,
+    }
+    .publish(env);
 }
