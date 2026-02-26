@@ -1,3 +1,31 @@
+pub fn finalize_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
+    merchant_address.require_auth();
+    let mut invoice: Invoice = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Invoice(invoice_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvoiceNotFound));
+    if invoice.merchant_id != env
+        .storage()
+        .persistent()
+        .get::<_, u64>(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap()
+    {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+    if invoice.status != InvoiceStatus::Draft {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+    invoice.status = InvoiceStatus::Pending;
+    env.storage().persistent().set(&DataKey::Invoice(invoice_id), &invoice);
+    
+    events::publish_invoice_finalized_event(
+        env,
+        invoice_id,
+        merchant_address.clone(),
+        env.ledger().timestamp(),
+    );
+}
 use crate::components::{access_control, admin, merchant, signature_util};
 use crate::errors::ContractError;
 use crate::events;
@@ -42,7 +70,7 @@ pub fn create_invoice(
         description: description.clone(),
         amount,
         token: token.clone(),
-        status: InvoiceStatus::Pending,
+        status: InvoiceStatus::Draft,
         merchant_id,
         payer: None,
         date_created: env.ledger().timestamp(),
@@ -130,7 +158,7 @@ pub fn create_invoice_signed(
         description: description.clone(),
         amount,
         token: token.clone(),
-        status: InvoiceStatus::Pending,
+        status: InvoiceStatus::Draft,
         merchant_id,
         payer: None,
         date_created: env.ledger().timestamp(),
@@ -211,6 +239,10 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
             .get::<_, Invoice>(&DataKey::Invoice(i))
         {
             let mut matches = true;
+            // Hide Draft invoices unless explicitly filtering for Draft
+            if filter.status.is_none() && invoice.status == InvoiceStatus::Draft {
+                continue;
+            }
             if let Some(status) = filter.status {
                 if invoice.status as u32 != status {
                     matches = false;
@@ -324,6 +356,9 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
 
 pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
     let invoice = get_invoice(env, invoice_id);
+    if invoice.status == InvoiceStatus::Draft {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
     if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
@@ -342,6 +377,9 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
     }
 
     let mut invoice = get_invoice(env, invoice_id);
+    if invoice.status == InvoiceStatus::Draft {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
 
     if let Some(expires_at) = invoice.expires_at {
         if env.ledger().timestamp() >= expires_at {

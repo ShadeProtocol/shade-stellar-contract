@@ -95,16 +95,73 @@ fn test_create_and_get_invoice_success() {
     let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
     assert_eq!(invoice_id, 1);
 
+    let invoice = client.get_invoice(&invoice_id);
+    assert_eq!(invoice.status, InvoiceStatus::Draft);
+
+    client.finalize_invoice(&merchant, &invoice_id);
+
     assert_latest_invoice_event(&env, &contract_id, invoice_id, &merchant, amount, &token);
 
     let invoice = client.get_invoice(&invoice_id);
 
     assert_eq!(invoice.id, 1);
+    // Merchant ID is 1 because it's the first merchant registered in setup_test? 
+    // No, setup_test doesn't register merchants. The register_merchant call on line 89 does.
     assert_eq!(invoice.merchant_id, 1);
     assert_eq!(invoice.amount, amount);
     assert_eq!(invoice.token, token);
     assert_eq!(invoice.description, description);
     assert_eq!(invoice.status, InvoiceStatus::Pending);
+}
+
+#[test]
+fn test_get_invoices_excludes_draft() {
+    let (env, client, _contract_id, _admin) = setup_test();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+
+    let token = Address::generate(&env);
+    let description = String::from_str(&env, "Test Invoice");
+    let amount: i128 = 1000;
+
+    client.create_invoice(&merchant, &description, &amount, &token, &None);
+    
+    let filter = crate::types::InvoiceFilter {
+        status: None,
+        merchant: None,
+        min_amount: None,
+        max_amount: None,
+        start_date: None,
+        end_date: None,
+    };
+    
+    let invoices = client.get_invoices(&filter);
+    assert_eq!(invoices.len(), 0);
+
+    client.finalize_invoice(&merchant, &1);
+    let invoices = client.get_invoices(&filter);
+    assert_eq!(invoices.len(), 1);
+}
+
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
+#[test]
+fn test_pay_draft_invoice_fails() {
+    let (env, client, _contract_id, _admin, token) = setup_test_with_payment();
+
+    let merchant = Address::generate(&env);
+    client.register_merchant(&merchant);
+    let merchant_account = Address::generate(&env);
+    client.set_merchant_account(&merchant, &merchant_account);
+
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
+
+    let customer = Address::generate(&env);
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &1000);
+
+    client.pay_invoice(&customer, &invoice_id);
 }
 
 #[test]
@@ -200,6 +257,7 @@ fn test_refund_invoice_success_within_window() {
     token_admin.mint(&merchant_account_id, &amount);
 
     env.ledger().set_timestamp(1_000);
+    client.finalize_invoice(&merchant, &invoice_id);
     mark_invoice_paid(
         &env,
         &shade_contract_id,
@@ -244,6 +302,7 @@ fn test_refund_invoice_fails_after_refund_window() {
     merchant_account.initialize(&merchant, &shade_contract_id, &1_u64);
 
     env.ledger().set_timestamp(604_801);
+    client.finalize_invoice(&merchant, &invoice_id);
     mark_invoice_paid(
         &env,
         &shade_contract_id,
@@ -271,9 +330,16 @@ fn test_void_invoice_success() {
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
-    // Verify invoice is Pending
+    // Verify invoice is Draft
     let invoice_before = client.get_invoice(&invoice_id);
-    assert_eq!(invoice_before.status, InvoiceStatus::Pending);
+    assert_eq!(invoice_before.status, InvoiceStatus::Draft);
+
+    // Finalize
+    client.finalize_invoice(&merchant, &invoice_id);
+
+    // Verify invoice is Pending before voiding
+    let invoice_before_pending = client.get_invoice(&invoice_id);
+    assert_eq!(invoice_before_pending.status, InvoiceStatus::Pending);
 
     // Void the invoice
     client.void_invoice(&merchant, &invoice_id);
@@ -307,17 +373,7 @@ fn test_refund_invoice_fails_for_non_owner() {
     merchant_account.initialize(&merchant, &shade_contract_id, &1_u64);
 
     env.ledger().set_timestamp(100);
-    mark_invoice_paid(
-        &env,
-        &shade_contract_id,
-        &merchant,
-        invoice_id,
-        &payer,
-        90,
-        &merchant_account_id,
-        &client,
-    );
-
+    client.finalize_invoice(&merchant, &invoice_id);
     client.refund_invoice(&other_merchant, &invoice_id);
 }
 
@@ -336,6 +392,7 @@ fn test_void_invoice_non_owner() {
     // Try to void with different merchant (should panic with NotAuthorized)
     let other_merchant = Address::generate(&env);
     client.register_merchant(&other_merchant);
+    client.finalize_invoice(&merchant, &invoice_id);
     client.void_invoice(&other_merchant, &invoice_id);
 }
 
@@ -403,6 +460,7 @@ fn test_pay_cancelled_invoice() {
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Void the invoice
+    client.finalize_invoice(&merchant, &invoice_id);
     client.void_invoice(&merchant, &invoice_id);
 
     // Try to pay cancelled invoice (should panic with InvalidInvoiceStatus)
@@ -439,6 +497,7 @@ fn test_amend_invoice_amount_success() {
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Amend the amount
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(&merchant, &invoice_id, &Some(2000), &None);
 
     // Verify amount was updated
@@ -461,6 +520,7 @@ fn test_amend_invoice_description_success() {
 
     // Amend the description
     let new_description = String::from_str(&env, "Updated Description");
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(
         &merchant,
         &invoice_id,
@@ -488,6 +548,7 @@ fn test_amend_invoice_both_fields_success() {
 
     // Amend both amount and description
     let new_description = String::from_str(&env, "Updated");
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(
         &merchant,
         &invoice_id,
@@ -563,6 +624,7 @@ fn test_amend_invoice_non_owner_fails() {
     // Try to amend with different merchant (should panic with NotAuthorized)
     let other_merchant = Address::generate(&env);
     client.register_merchant(&other_merchant);
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(&other_merchant, &invoice_id, &Some(2000), &None);
 }
 
@@ -579,6 +641,7 @@ fn test_amend_invoice_invalid_amount_fails() {
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Try to amend with invalid amount (should panic with InvalidAmount)
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(&merchant, &invoice_id, &Some(0), &None);
 }
 
@@ -595,6 +658,7 @@ fn test_amend_invoice_negative_amount_fails() {
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Try to amend with negative amount (should panic with InvalidAmount)
+    client.finalize_invoice(&merchant, &invoice_id);
     client.amend_invoice(&merchant, &invoice_id, &Some(-100), &None);
 }
 

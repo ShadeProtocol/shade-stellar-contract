@@ -67,12 +67,13 @@ pub struct Invoice {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum InvoiceStatus {
-    Pending = 0,
-    Paid = 1,
-    Cancelled = 2,
-    Refunded = 3,
-    PartiallyRefunded = 4,
-    PartiallyPaid = 5,
+    Draft = 0,
+    Pending = 1,
+    Paid = 2,
+    Cancelled = 3,
+    Refunded = 4,
+    PartiallyRefunded = 5,
+    PartiallyPaid = 6,
 }
 
 #[contracttype]

@@ -42,6 +42,7 @@ pub trait ShadeTrait {
         signature: BytesN<64>,
     ) -> u64;
     fn get_invoice(env: Env, invoice_id: u64) -> Invoice;
+    fn finalize_invoice(env: Env, merchant: Address, invoice_id: u64);
     fn refund_invoice(env: Env, merchant: Address, invoice_id: u64);
     fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>);
     fn get_merchant_key(env: Env, merchant: Address) -> BytesN<32>;

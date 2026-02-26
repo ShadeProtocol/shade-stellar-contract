@@ -118,6 +118,27 @@ pub fn publish_invoice_created_event(
 }
 
 #[contractevent]
+pub struct InvoiceFinalizedEvent {
+    pub invoice_id: u64,
+    pub merchant: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_invoice_finalized_event(
+    env: &Env,
+    invoice_id: u64,
+    merchant: Address,
+    timestamp: u64,
+) {
+    InvoiceFinalizedEvent {
+        invoice_id,
+        merchant,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct InvoiceRefundedEvent {
     pub invoice_id: u64,
     pub merchant: Address,
