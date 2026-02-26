@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{token, Address, Env, String};
+use soroban_sdk::{token, Address, Env, String, Vec};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -430,4 +430,85 @@ fn test_partial_payment_cannot_exceed_requested_amount() {
 
     shade_client.pay_invoice_partial(&customer, &invoice_id, &700);
     shade_client.pay_invoice_partial(&customer, &invoice_id, &400);
+}
+
+
+#[test]
+fn test_batch_invoice_payment() {
+    let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
+
+    // Register merchant
+    let merchant = Address::generate(&env);
+    let merchant1 = Address::generate(&env);
+    let merchant2= Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+    shade_client.register_merchant(&merchant1);
+    shade_client.register_merchant(&merchant2);
+
+    let mut invoice_ids = Vec::new(&env);
+
+    // Create merchant account (using a regular address as mock)
+    let merchant_account = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let description = String::from_str(&env, "Test Invoice");
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    invoice_ids.push_back(invoice_id);
+
+    // Create merchant account (using a regular address as mock)
+    let merchant_account2 = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant1, &merchant_account2);
+    let description = String::from_str(&env, "Test Invoice 2");
+    let invoice_id_2 = shade_client.create_invoice(&merchant1, &description, &2000, &token);
+    invoice_ids.push_back(invoice_id_2);
+
+    // Create merchant account (using a regular address as mock)
+    let merchant_account3 = Address::generate(&env);
+    shade_client.set_merchant_account(&merchant2, &merchant_account3);
+    let description = String::from_str(&env, "Test Invoice 3");
+    let invoice_id_3 = shade_client.create_invoice(&merchant2, &description, &3000, &token);
+    invoice_ids.push_back(invoice_id_3);
+
+    // Create customer and mint tokens
+    let customer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&customer, &6000);
+
+    // Customer pays invoices
+    // shade_client.pay_invoice(&customer, &invoice_id_3);
+    shade_client.pay_invoices_batch(&customer, &invoice_ids);
+
+    // Verify balances
+    let token_balance_client = token::TokenClient::new(&env, &token);
+    let shade_balance = token_balance_client.balance(&shade_contract_id);
+    let merchant_balance = token_balance_client.balance(&merchant_account);
+    let merchant_2_balance = token_balance_client.balance(&merchant_account2);
+    let merchant_3_balance = token_balance_client.balance(&merchant_account3);
+
+    assert_eq!(shade_balance, 300); // 5% fee = 50 + 100 + 150 units
+    assert_eq!(merchant_balance, 950); // 95% = 950 units
+    assert_eq!(merchant_2_balance, 1900); // 95% = 950 units
+    assert_eq!(merchant_3_balance, 2850); // 95% = 950 units
+
+    // Verify invoice status
+    let invoice = shade_client.get_invoice(&invoice_id);
+    assert_eq!(invoice.status, InvoiceStatus::Paid);
+    assert_eq!(invoice.payer, Some(customer.clone()));
+    assert!(invoice.date_paid.is_some());
+    assert_eq!(invoice.amount, 1000);
+    assert_eq!(invoice.merchant_id, 1);
+
+    let invoice_2 = shade_client.get_invoice(&invoice_id_2);
+    assert_eq!(invoice_2.status, InvoiceStatus::Paid);
+    assert_eq!(invoice_2.payer, Some(customer.clone()));
+    assert!(invoice_2.date_paid.is_some());
+    assert_eq!(invoice_2.amount, 2000);
+    assert_eq!(invoice_2.merchant_id, 2);
+
+    let invoice_3 = shade_client.get_invoice(&invoice_id_3);
+    assert_eq!(invoice_3.status, InvoiceStatus::Paid);
+    assert_eq!(invoice_3.payer, Some(customer));
+    assert!(invoice_3.date_paid.is_some());
+    assert_eq!(invoice_3.amount, 3000);
+    assert_eq!(invoice_3.merchant_id, 3);
+
 }
