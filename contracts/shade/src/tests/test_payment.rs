@@ -513,7 +513,6 @@ fn test_partial_payment_cannot_exceed_requested_amount() {
     shade_client.pay_invoice_partial(&customer, &invoice_id, &400);
 }
 
-
 #[test]
 fn test_batch_invoice_payment() {
     let (env, shade_client, shade_contract_id, _admin, token) = setup_test_with_payment();
@@ -521,7 +520,7 @@ fn test_batch_invoice_payment() {
     // Register merchant
     let merchant = Address::generate(&env);
     let merchant1 = Address::generate(&env);
-    let merchant2= Address::generate(&env);
+    let merchant2 = Address::generate(&env);
     shade_client.register_merchant(&merchant);
     shade_client.register_merchant(&merchant1);
     shade_client.register_merchant(&merchant2);
@@ -591,5 +590,4 @@ fn test_batch_invoice_payment() {
     assert!(invoice_3.date_paid.is_some());
     assert_eq!(invoice_3.amount, 3000);
     assert_eq!(invoice_3.merchant_id, 3);
-
 }
