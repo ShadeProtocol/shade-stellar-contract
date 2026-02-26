@@ -295,8 +295,13 @@ fn test_payment_token_not_accepted() {
     let unaccepted_token = env.register_stellar_asset_contract_v2(unaccepted_token_admin.clone());
 
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id =
-        shade_client.create_invoice(&merchant, &description, &1000, &unaccepted_token.address(), &None);
+    let invoice_id = shade_client.create_invoice(
+        &merchant,
+        &description,
+        &1000,
+        &unaccepted_token.address(),
+        &None,
+    );
 
     // Create customer and mint tokens
     let customer = Address::generate(&env);
@@ -531,21 +536,21 @@ fn test_batch_invoice_payment() {
     let merchant_account = Address::generate(&env);
     shade_client.set_merchant_account(&merchant, &merchant_account);
     let description = String::from_str(&env, "Test Invoice");
-    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token);
+    let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
     invoice_ids.push_back(invoice_id);
 
     // Create merchant account (using a regular address as mock)
     let merchant_account2 = Address::generate(&env);
     shade_client.set_merchant_account(&merchant1, &merchant_account2);
     let description = String::from_str(&env, "Test Invoice 2");
-    let invoice_id_2 = shade_client.create_invoice(&merchant1, &description, &2000, &token);
+    let invoice_id_2 = shade_client.create_invoice(&merchant1, &description, &2000, &token, &None);
     invoice_ids.push_back(invoice_id_2);
 
     // Create merchant account (using a regular address as mock)
     let merchant_account3 = Address::generate(&env);
     shade_client.set_merchant_account(&merchant2, &merchant_account3);
     let description = String::from_str(&env, "Test Invoice 3");
-    let invoice_id_3 = shade_client.create_invoice(&merchant2, &description, &3000, &token);
+    let invoice_id_3 = shade_client.create_invoice(&merchant2, &description, &3000, &token, &None);
     invoice_ids.push_back(invoice_id_3);
 
     // Create customer and mint tokens
