@@ -10,6 +10,8 @@ pub trait MerchantAccountRefund {
 }
 
 pub const MAX_REFUND_DURATION: u64 = 604_800;
+const DISCOUNT_TIER1_VOLUME: i128 = 1_000_000;
+const DISCOUNT_TIER2_VOLUME: i128 = 10_000_000;
 
 pub fn create_invoice(
     env: &Env,
@@ -361,7 +363,7 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
         panic_with_error!(env, ContractError::TokenNotAccepted);
     }
 
-    let fee_amount = get_fee_for_amount(env, &invoice.token, amount);
+    let fee_amount = get_fee_for_amount(env, &invoice.token, amount, invoice.merchant_id);
     let merchant_amount = amount - fee_amount;
 
     let token_client = token::TokenClient::new(env, &invoice.token);
@@ -392,6 +394,8 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
         .persistent()
         .set(&DataKey::Invoice(invoice_id), &invoice);
 
+    record_merchant_volume(env, invoice.merchant_id, amount);
+
     events::publish_invoice_paid_event(
         env,
         invoice_id,
@@ -401,6 +405,13 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
         amount,
         fee_amount,
         invoice.token.clone(),
+        env.ledger().timestamp(),
+    );
+    events::publish_fee_collected_event(
+        env,
+        fee_amount,
+        invoice.token.clone(),
+        merchant_account_id.clone(),
         env.ledger().timestamp(),
     );
 
@@ -492,16 +503,38 @@ pub fn amend_invoice(
     );
 }
 
-fn get_fee_for_amount(env: &Env, token: &Address, amount: i128) -> i128 {
-    let fee_bps: i128 = env
-        .storage()
-        .persistent()
-        .get(&DataKey::TokenFee(token.clone()))
-        .unwrap_or(0);
+fn get_fee_for_amount(env: &Env, token: &Address, amount: i128, merchant_id: u64) -> i128 {
+    let fee_bps: i128 = admin::get_fee(env, token);
 
     if fee_bps == 0 {
         return 0;
     }
 
-    (amount * fee_bps) / 10_000i128
+    let adjusted_fee_bps = apply_fee_discount(env, merchant_id, fee_bps);
+    (amount * adjusted_fee_bps) / 10_000i128
+}
+
+fn apply_fee_discount(env: &Env, merchant_id: u64, fee_bps: i128) -> i128 {
+    let volume = get_merchant_volume(env, merchant_id);
+    if volume >= DISCOUNT_TIER2_VOLUME {
+        return fee_bps / 4;
+    }
+    if volume >= DISCOUNT_TIER1_VOLUME {
+        return fee_bps / 2;
+    }
+    fee_bps
+}
+
+fn get_merchant_volume(env: &Env, merchant_id: u64) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::MerchantVolume(merchant_id))
+        .unwrap_or(0)
+}
+
+fn record_merchant_volume(env: &Env, merchant_id: u64, amount: i128) {
+    let current = get_merchant_volume(env, merchant_id);
+    env.storage()
+        .persistent()
+        .set(&DataKey::MerchantVolume(merchant_id), &(current + amount));
 }

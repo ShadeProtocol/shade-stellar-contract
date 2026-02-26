@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{Address, Env, String};
+use soroban_sdk::{Address, BytesN, Env, String};
 
 fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     let env = Env::default();
@@ -11,7 +11,8 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
     (env, client, contract_id, admin)
 }
 
@@ -96,7 +97,8 @@ fn test_void_invoice_already_paid() {
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let token_admin = Address::generate(&env);
     let token = env
@@ -110,9 +112,7 @@ fn test_void_invoice_already_paid() {
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = client.get_merchant_account(&1u64);
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -139,7 +139,8 @@ fn test_pay_voided_invoice() {
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let token_admin = Address::generate(&env);
     let token = env
@@ -153,9 +154,7 @@ fn test_pay_voided_invoice() {
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = client.get_merchant_account(&1u64);
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -218,7 +217,8 @@ fn test_void_refunded_invoice() {
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let token_admin = Address::generate(&env);
     let token = env
@@ -231,11 +231,7 @@ fn test_void_refunded_invoice() {
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    let merchant_account_id = env.register(account::account::MerchantAccount, ());
-    let merchant_account = account::account::MerchantAccountClient::new(&env, &merchant_account_id);
-    merchant_account.initialize(&merchant, &contract_id, &1_u64);
-
-    client.set_merchant_account(&merchant, &merchant_account_id);
+    let merchant_account_id = client.get_merchant_account(&1u64);
 
     let description = String::from_str(&env, "Refundable Invoice");
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);

@@ -17,7 +17,7 @@ pub struct Shade;
 
 #[contractimpl]
 impl ShadeTrait for Shade {
-    fn initialize(env: Env, admin: Address) {
+    fn initialize(env: Env, admin: Address, account_wasm_hash: BytesN<32>) {
         if env.storage().persistent().has(&DataKey::Admin) {
             panic_with_error!(&env, ContractError::AlreadyInitialized);
         }
@@ -26,6 +26,9 @@ impl ShadeTrait for Shade {
             timestamp: env.ledger().timestamp(),
         };
         env.storage().persistent().set(&DataKey::Admin, &admin);
+        env.storage()
+            .persistent()
+            .set(&DataKey::MerchantAccountWasmHash, &account_wasm_hash);
         env.storage()
             .persistent()
             .set(&DataKey::ContractInfo, &contract_info);

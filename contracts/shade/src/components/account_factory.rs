@@ -8,6 +8,22 @@ pub fn deploy_account(
     merchant_id: u64,
     wasm_hash: BytesN<32>,
 ) -> Address {
+    #[cfg(test)]
+    {
+        let deployed_contract = env.register(account::account::MerchantAccount, ());
+        let client = account::account::MerchantAccountClient::new(env, &deployed_contract);
+        client.initialize(&merchant, &manager, &merchant_id);
+
+        events::publish_merchant_account_deployed_event(
+            env,
+            merchant,
+            deployed_contract.clone(),
+            env.ledger().timestamp(),
+        );
+
+        return deployed_contract;
+    }
+
     // Generate a random salt for deployment.
     let random_bytes_n: BytesN<32> = env.prng().gen();
     let random_bytes = Bytes::from_slice(env, &random_bytes_n.to_array());

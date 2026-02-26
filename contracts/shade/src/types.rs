@@ -14,19 +14,22 @@ pub enum DataKey {
     MerchantCount,
     MerchantId(Address),
     TokenFee(Address),
+    PendingTokenFee(Address),
+    PendingTokenFeeActivation(Address),
     MerchantTokens,
     MerchantBalance(Address),
     MerchantAccount(u64),
     Invoice(u64),
     InvoiceCount,
     ReentrancyStatus,
-    AccountWasmHash,
+    MerchantAccountWasmHash,
     Role(Address, Role),
     UsedNonce(Address, BytesN<32>),
     Plan(u64),
     PlanCount,
     Subscription(u64),
     SubscriptionCount,
+    MerchantVolume(u64),
 }
 
 #[contracttype]
@@ -41,6 +44,7 @@ pub struct ContractInfo {
 pub struct Merchant {
     pub id: u64,
     pub address: Address,
+    pub account: Address,
     pub active: bool,
     pub verified: bool,
     pub date_registered: u64,

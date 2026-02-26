@@ -2,9 +2,8 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
-use account::account::{MerchantAccount, MerchantAccountClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
-use soroban_sdk::{token, Address, Env, String};
+use soroban_sdk::{token, Address, BytesN, Env, String};
 
 /// Shared setup: deploy Shade, initialize, register a token with **0 fee**,
 /// register a merchant, deploy + link a merchant account, create an invoice,
@@ -34,7 +33,8 @@ fn setup_paid_invoice(pay_timestamp: u64) -> RefundTestContext<'static> {
     let shade_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &shade_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     // Register token with 0 fee – keeps full amount in merchant account
     let token_admin = Address::generate(&env);
@@ -46,11 +46,7 @@ fn setup_paid_invoice(pay_timestamp: u64) -> RefundTestContext<'static> {
     // Register merchant + deploy merchant account contract
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
-
-    let merchant_account_id = env.register(MerchantAccount, ());
-    let merchant_account = MerchantAccountClient::new(&env, &merchant_account_id);
-    merchant_account.initialize(&merchant, &shade_id, &1_u64);
-    client.set_merchant_account(&merchant, &merchant_account_id);
+    let merchant_account_id = client.get_merchant_account(&1u64);
 
     // Create invoice
     let amount = 1_000_i128;
@@ -216,7 +212,8 @@ fn test_refund_pending_invoice_fails() {
     let shade_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &shade_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
@@ -243,7 +240,8 @@ fn test_refund_cancelled_invoice_fails() {
     let shade_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &shade_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
@@ -318,7 +316,8 @@ fn test_partial_refund_with_fee() {
     let shade_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &shade_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let token_admin = Address::generate(&env);
     let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
@@ -328,11 +327,7 @@ fn test_partial_refund_with_fee() {
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
-
-    let merchant_account_id = env.register(MerchantAccount, ());
-    let merchant_account = MerchantAccountClient::new(&env, &merchant_account_id);
-    merchant_account.initialize(&merchant, &shade_id, &1_u64);
-    client.set_merchant_account(&merchant, &merchant_account_id);
+    let merchant_account_id = client.get_merchant_account(&1u64);
 
     let amount = 1_000_i128;
     let description = String::from_str(&env, "Fee Refund");

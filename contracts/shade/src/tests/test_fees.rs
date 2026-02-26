@@ -4,8 +4,8 @@ use crate::components::admin as admin_component;
 use crate::errors::ContractError;
 use crate::shade::Shade;
 use crate::shade::ShadeClient;
-use soroban_sdk::testutils::{Address as _, Events as _};
-use soroban_sdk::{Address, Env, Map, Symbol, TryIntoVal, Val};
+use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
+use soroban_sdk::{Address, BytesN, Env, Map, Symbol, TryIntoVal, Val};
 
 fn setup_with_accepted_token(env: &Env) -> (Address, ShadeClient<'_>, Address) {
     env.mock_all_auths();
@@ -14,7 +14,8 @@ fn setup_with_accepted_token(env: &Env) -> (Address, ShadeClient<'_>, Address) {
     let client = ShadeClient::new(env, &contract_id);
 
     let admin = Address::generate(env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let token_admin = Address::generate(env);
     let token = env
@@ -83,7 +84,8 @@ fn test_set_fee_unaccepted_token() {
     let client = ShadeClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let unaccepted_token = Address::generate(&env);
 
@@ -113,10 +115,14 @@ fn test_update_fee() {
     let env = Env::default();
     let (admin, client, token) = setup_with_accepted_token(&env);
 
+    env.ledger().set_timestamp(100);
     client.set_fee(&admin, &token, &200);
     assert_eq!(client.get_fee(&token), 200);
 
     client.set_fee(&admin, &token, &750);
+    assert_eq!(client.get_fee(&token), 200);
+
+    env.ledger().set_timestamp(100 + 3600);
     assert_eq!(client.get_fee(&token), 750);
 }
 

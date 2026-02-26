@@ -13,7 +13,8 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &contract_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
     (env, client, contract_id, admin)
 }
 

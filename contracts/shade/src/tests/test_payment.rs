@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use soroban_sdk::testutils::{Address as _, Events, Ledger as _};
-use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryIntoVal, Val};
+use soroban_sdk::{token, Address, BytesN, Env, Map, String, Symbol, TryIntoVal, Val};
 
 fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -15,7 +15,8 @@ fn setup_test_with_payment() -> (Env, ShadeClient<'static>, Address, Address, Ad
 
     // Initialize with admin
     let admin = Address::generate(&env);
-    shade_client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    shade_client.initialize(&admin, &account_wasm_hash);
 
     // Create and register token
     let token_admin = Address::generate(&env);
@@ -44,34 +45,87 @@ fn assert_latest_paid_event(
     let events = env.events().all();
     assert!(!events.is_empty(), "No events captured for payment");
 
-    let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
-    assert_eq!(&event_contract_id, contract_id);
+    let mut found = false;
+    for i in (0..events.len()).rev() {
+        let (event_contract_id, topics, data) = events.get(i).unwrap();
+        if topics.len() != 1 {
+            continue;
+        }
+        let event_name: Symbol = topics.get(0).unwrap().try_into_val(env).unwrap();
+        if event_name != Symbol::new(env, "invoice_paid_event") {
+            continue;
+        }
+        assert_eq!(&event_contract_id, contract_id);
 
-    let data_map: Map<Symbol, Val> = data.try_into_val(env).unwrap();
+        let data_map: Map<Symbol, Val> = data.try_into_val(env).unwrap();
 
-    let invoice_id_val = data_map.get(Symbol::new(env, "invoice_id")).unwrap();
-    let merchant_id_val = data_map.get(Symbol::new(env, "merchant_id")).unwrap();
-    let merchant_account_val = data_map.get(Symbol::new(env, "merchant_account")).unwrap();
-    let payer_val = data_map.get(Symbol::new(env, "payer")).unwrap();
-    let amount_val = data_map.get(Symbol::new(env, "amount")).unwrap();
-    let fee_val = data_map.get(Symbol::new(env, "fee")).unwrap();
-    let token_val = data_map.get(Symbol::new(env, "token")).unwrap();
+        let invoice_id_val = data_map.get(Symbol::new(env, "invoice_id")).unwrap();
+        let merchant_id_val = data_map.get(Symbol::new(env, "merchant_id")).unwrap();
+        let merchant_account_val = data_map.get(Symbol::new(env, "merchant_account")).unwrap();
+        let payer_val = data_map.get(Symbol::new(env, "payer")).unwrap();
+        let amount_val = data_map.get(Symbol::new(env, "amount")).unwrap();
+        let fee_val = data_map.get(Symbol::new(env, "fee")).unwrap();
+        let token_val = data_map.get(Symbol::new(env, "token")).unwrap();
 
-    let invoice_id_in_event: u64 = invoice_id_val.try_into_val(env).unwrap();
-    let merchant_id_in_event: u64 = merchant_id_val.try_into_val(env).unwrap();
-    let merchant_account_in_event: Address = merchant_account_val.try_into_val(env).unwrap();
-    let payer_in_event: Address = payer_val.try_into_val(env).unwrap();
-    let amount_in_event: i128 = amount_val.try_into_val(env).unwrap();
-    let fee_in_event: i128 = fee_val.try_into_val(env).unwrap();
-    let token_in_event: Address = token_val.try_into_val(env).unwrap();
+        let invoice_id_in_event: u64 = invoice_id_val.try_into_val(env).unwrap();
+        let merchant_id_in_event: u64 = merchant_id_val.try_into_val(env).unwrap();
+        let merchant_account_in_event: Address = merchant_account_val.try_into_val(env).unwrap();
+        let payer_in_event: Address = payer_val.try_into_val(env).unwrap();
+        let amount_in_event: i128 = amount_val.try_into_val(env).unwrap();
+        let fee_in_event: i128 = fee_val.try_into_val(env).unwrap();
+        let token_in_event: Address = token_val.try_into_val(env).unwrap();
 
-    assert_eq!(invoice_id_in_event, expected_invoice_id);
-    assert_eq!(merchant_id_in_event, expected_merchant_id);
-    assert_eq!(merchant_account_in_event, expected_merchant_account.clone());
-    assert_eq!(payer_in_event, expected_payer.clone());
-    assert_eq!(amount_in_event, expected_amount);
-    assert_eq!(fee_in_event, expected_fee);
-    assert_eq!(token_in_event, expected_token.clone());
+        assert_eq!(invoice_id_in_event, expected_invoice_id);
+        assert_eq!(merchant_id_in_event, expected_merchant_id);
+        assert_eq!(merchant_account_in_event, expected_merchant_account.clone());
+        assert_eq!(payer_in_event, expected_payer.clone());
+        assert_eq!(amount_in_event, expected_amount);
+        assert_eq!(fee_in_event, expected_fee);
+        assert_eq!(token_in_event, expected_token.clone());
+        found = true;
+        break;
+    }
+    assert!(found, "invoice_paid_event not found in events");
+}
+
+fn assert_latest_fee_collected_event(
+    env: &Env,
+    contract_id: &Address,
+    expected_fee: i128,
+    expected_token: &Address,
+    expected_merchant_account: &Address,
+) {
+    let events = env.events().all();
+    assert!(!events.is_empty(), "No events captured for fee collection");
+
+    let mut found = false;
+    for i in (0..events.len()).rev() {
+        let (event_contract_id, topics, data) = events.get(i).unwrap();
+        if topics.len() != 1 {
+            continue;
+        }
+        let event_name: Symbol = topics.get(0).unwrap().try_into_val(env).unwrap();
+        if event_name != Symbol::new(env, "fee_collected_event") {
+            continue;
+        }
+        assert_eq!(&event_contract_id, contract_id);
+
+        let data_map: Map<Symbol, Val> = data.try_into_val(env).unwrap();
+        let fee_val = data_map.get(Symbol::new(env, "fee")).unwrap();
+        let token_val = data_map.get(Symbol::new(env, "token")).unwrap();
+        let merchant_account_val = data_map.get(Symbol::new(env, "merchant_account")).unwrap();
+
+        let fee_in_event: i128 = fee_val.try_into_val(env).unwrap();
+        let token_in_event: Address = token_val.try_into_val(env).unwrap();
+        let merchant_account_in_event: Address = merchant_account_val.try_into_val(env).unwrap();
+
+        assert_eq!(fee_in_event, expected_fee);
+        assert_eq!(token_in_event, expected_token.clone());
+        assert_eq!(merchant_account_in_event, expected_merchant_account.clone());
+        found = true;
+        break;
+    }
+    assert!(found, "fee_collected_event not found in events");
 }
 
 #[test]
@@ -82,9 +136,7 @@ fn test_successful_payment_with_fee() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account (using a regular address as mock)
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
@@ -110,6 +162,7 @@ fn test_successful_payment_with_fee() {
         50,
         &token,
     );
+    assert_latest_fee_collected_event(&env, &shade_contract_id, 50, &token, &merchant_account);
 
     // Verify balances
     let token_balance_client = token::TokenClient::new(&env, &token);
@@ -131,15 +184,15 @@ fn test_payment_with_zero_fee() {
     let (env, shade_client, shade_contract_id, admin, token) = setup_test_with_payment();
 
     // Set fee to 0 bps (0%)
+    env.ledger().set_timestamp(100);
     shade_client.set_fee(&admin, &token, &0);
+    env.ledger().set_timestamp(100 + 3600);
 
     // Register merchant
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
@@ -167,15 +220,15 @@ fn test_payment_with_maximum_fee() {
     let (env, shade_client, shade_contract_id, admin, token) = setup_test_with_payment();
 
     // Set fee to 10000 bps (100%)
+    env.ledger().set_timestamp(100);
     shade_client.set_fee(&admin, &token, &10000);
+    env.ledger().set_timestamp(100 + 3600);
 
     // Register merchant
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
@@ -206,8 +259,7 @@ fn test_payment_rejects_expired_invoice() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     let description = String::from_str(&env, "Expired Invoice");
     let expires_at = 1000_u64;
@@ -231,9 +283,7 @@ fn test_payment_invoice_already_paid() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -260,9 +310,7 @@ fn test_payment_insufficient_funds() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice for 1000 units
     let description = String::from_str(&env, "Test Invoice");
@@ -286,9 +334,7 @@ fn test_payment_token_not_accepted() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice with unaccepted token
     let unaccepted_token_admin = Address::generate(&env);
@@ -321,7 +367,11 @@ fn test_payment_merchant_account_not_set() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // DO NOT set merchant account - this will cause the panic
+    env.as_contract(&shade_client.address, || {
+        env.storage()
+            .persistent()
+            .remove(&crate::types::DataKey::Merchant(1u64));
+    });
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -344,9 +394,7 @@ fn test_payment_payer_authorization() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -373,9 +421,7 @@ fn test_payment_updates_invoice_timestamps() {
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice
     let description = String::from_str(&env, "Test Invoice");
@@ -404,15 +450,15 @@ fn test_fee_calculation_accuracy() {
     let (env, shade_client, shade_contract_id, admin, token) = setup_test_with_payment();
 
     // Test with 1% fee (100 bps)
+    env.ledger().set_timestamp(100);
     shade_client.set_fee(&admin, &token, &100);
+    env.ledger().set_timestamp(100 + 3600);
 
     // Register merchant
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
 
-    // Create merchant account
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     // Create invoice for 10000 units
     let description = String::from_str(&env, "Test Invoice");
@@ -441,8 +487,7 @@ fn test_partial_payment_two_equal_steps_reaches_paid() {
 
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     let description = String::from_str(&env, "Partial Payment Invoice");
     let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
@@ -477,8 +522,7 @@ fn test_partial_payment_collects_fees_proportionally_each_step() {
 
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     let description = String::from_str(&env, "Proportional Fee Invoice");
     let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);
@@ -498,14 +542,48 @@ fn test_partial_payment_collects_fees_proportionally_each_step() {
 }
 
 #[test]
+fn test_fee_discount_applies_after_volume_threshold() {
+    let (env, shade_client, shade_contract_id, admin, token) = setup_test_with_payment();
+
+    env.ledger().set_timestamp(100);
+    shade_client.set_fee(&admin, &token, &1000); // 10%
+    env.ledger().set_timestamp(100 + 3600);
+
+    let merchant = Address::generate(&env);
+    shade_client.register_merchant(&merchant);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
+
+    let payer = Address::generate(&env);
+    let token_client = token::StellarAssetClient::new(&env, &token);
+    token_client.mint(&payer, &1_020_000);
+
+    let invoice_id_1 =
+        shade_client.create_invoice(&merchant, &String::from_str(&env, "Vol 1"), &1_000_000, &token, &None);
+    shade_client.pay_invoice(&payer, &invoice_id_1);
+
+    let invoice_id_2 =
+        shade_client.create_invoice(&merchant, &String::from_str(&env, "Vol 2"), &10_000, &token, &None);
+    shade_client.pay_invoice(&payer, &invoice_id_2);
+
+    let tok = token::TokenClient::new(&env, &token);
+    let shade_balance = tok.balance(&shade_contract_id);
+    let merchant_balance = tok.balance(&merchant_account);
+
+    // First payment at 10%: 100_000 fee, second payment at 5%: 500 fee
+    assert_eq!(shade_balance, 100_500);
+    assert_eq!(merchant_balance, 1_009_500);
+
+    assert_latest_fee_collected_event(&env, &shade_contract_id, 500, &token, &merchant_account);
+}
+
+#[test]
 #[should_panic(expected = "HostError: Error(Contract, #7)")]
 fn test_partial_payment_cannot_exceed_requested_amount() {
     let (env, shade_client, _shade_contract_id, _admin, token) = setup_test_with_payment();
 
     let merchant = Address::generate(&env);
     shade_client.register_merchant(&merchant);
-    let merchant_account = Address::generate(&env);
-    shade_client.set_merchant_account(&merchant, &merchant_account);
+    let merchant_account = shade_client.get_merchant_account(&1u64);
 
     let description = String::from_str(&env, "Overpay Guard Invoice");
     let invoice_id = shade_client.create_invoice(&merchant, &description, &1000, &token, &None);

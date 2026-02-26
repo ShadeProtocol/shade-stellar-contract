@@ -2,9 +2,8 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::SubscriptionStatus;
-use account::account::{MerchantAccount, MerchantAccountClient};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
-use soroban_sdk::{token, Address, Env, String};
+use soroban_sdk::{token, Address, BytesN, Env, String};
 
 /// Monthly interval constant: 30 days = 2 592 000 seconds.
 const MONTHLY_INTERVAL: u64 = 2_592_000;
@@ -28,7 +27,8 @@ fn setup_subscription_env() -> SubTestContext<'static> {
     let shade_id = env.register(Shade, ());
     let client = ShadeClient::new(&env, &shade_id);
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     // Register token with 5% fee
     let token_admin = Address::generate(&env);
@@ -40,11 +40,7 @@ fn setup_subscription_env() -> SubTestContext<'static> {
     // Register merchant + merchant account
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
-
-    let merchant_account_id = env.register(MerchantAccount, ());
-    let merchant_account = MerchantAccountClient::new(&env, &merchant_account_id);
-    merchant_account.initialize(&merchant, &shade_id, &1_u64);
-    client.set_merchant_account(&merchant, &merchant_account_id);
+    let merchant_account_id = client.get_merchant_account(&1u64);
 
     // Merchant creates a monthly plan
     let description = String::from_str(&env, "Monthly Pro Plan");
@@ -373,7 +369,9 @@ fn test_charge_with_zero_fee() {
     let ctx = setup_subscription_env();
 
     // Set fee to 0
+    ctx.env.ledger().set_timestamp(100);
     ctx.client.set_fee(&ctx.admin, &ctx.token, &0);
+    ctx.env.ledger().set_timestamp(100 + 3600);
 
     let customer = Address::generate(&ctx.env);
     fund_and_approve(&ctx, &customer, 5_000);

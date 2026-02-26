@@ -284,6 +284,30 @@ pub fn publish_fee_set_event(env: &Env, token: Address, fee: i128, timestamp: u6
 }
 
 #[contractevent]
+pub struct FeeCollectedEvent {
+    pub fee: i128,
+    pub token: Address,
+    pub merchant_account: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_fee_collected_event(
+    env: &Env,
+    fee: i128,
+    token: Address,
+    merchant_account: Address,
+    timestamp: u64,
+) {
+    FeeCollectedEvent {
+        fee,
+        token,
+        merchant_account,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct ContractUpgradedEvent {
     pub new_wasm_hash: BytesN<32>,
     pub timestamp: u64,

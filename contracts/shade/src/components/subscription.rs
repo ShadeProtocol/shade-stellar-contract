@@ -4,6 +4,9 @@ use crate::events;
 use crate::types::{DataKey, Merchant, Subscription, SubscriptionPlan, SubscriptionStatus};
 use soroban_sdk::{panic_with_error, token, Address, Env, String};
 
+const DISCOUNT_TIER1_VOLUME: i128 = 1_000_000;
+const DISCOUNT_TIER2_VOLUME: i128 = 10_000_000;
+
 pub fn create_plan(
     env: &Env,
     merchant_address: &Address,
@@ -142,7 +145,7 @@ pub fn charge_subscription(env: &Env, subscription_id: u64) {
     }
 
     // Calculate fee split
-    let fee_amount = get_fee_for_plan(env, &plan);
+    let fee_amount = get_fee_for_plan(env, &plan, plan.merchant_id);
     let merchant_amount = plan.amount - fee_amount;
 
     let token_client = token::TokenClient::new(env, &plan.token);
@@ -171,11 +174,20 @@ pub fn charge_subscription(env: &Env, subscription_id: u64) {
         .persistent()
         .set(&DataKey::Subscription(subscription_id), &subscription);
 
+    record_merchant_volume(env, plan.merchant_id, plan.amount);
+
     events::publish_subscription_charged_event(
         env,
         subscription_id,
         plan.amount,
         fee_amount,
+        env.ledger().timestamp(),
+    );
+    events::publish_fee_collected_event(
+        env,
+        fee_amount,
+        plan.token.clone(),
+        merchant_account_id.clone(),
         env.ledger().timestamp(),
     );
 }
@@ -240,10 +252,36 @@ pub fn get_subscription(env: &Env, subscription_id: u64) -> Subscription {
         .unwrap_or_else(|| panic_with_error!(env, ContractError::SubscriptionNotFound))
 }
 
-fn get_fee_for_plan(env: &Env, plan: &SubscriptionPlan) -> i128 {
+fn get_fee_for_plan(env: &Env, plan: &SubscriptionPlan, merchant_id: u64) -> i128 {
     let fee: i128 = admin::get_fee(env, &plan.token);
     if fee == 0 {
         return 0;
     }
-    (plan.amount * fee) / 10_000i128
+    let adjusted_fee = apply_fee_discount(env, merchant_id, fee);
+    (plan.amount * adjusted_fee) / 10_000i128
+}
+
+fn apply_fee_discount(env: &Env, merchant_id: u64, fee_bps: i128) -> i128 {
+    let volume = get_merchant_volume(env, merchant_id);
+    if volume >= DISCOUNT_TIER2_VOLUME {
+        return fee_bps / 4;
+    }
+    if volume >= DISCOUNT_TIER1_VOLUME {
+        return fee_bps / 2;
+    }
+    fee_bps
+}
+
+fn get_merchant_volume(env: &Env, merchant_id: u64) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::MerchantVolume(merchant_id))
+        .unwrap_or(0)
+}
+
+fn record_merchant_volume(env: &Env, merchant_id: u64, amount: i128) {
+    let current = get_merchant_volume(env, merchant_id);
+    env.storage()
+        .persistent()
+        .set(&DataKey::MerchantVolume(merchant_id), &(current + amount));
 }

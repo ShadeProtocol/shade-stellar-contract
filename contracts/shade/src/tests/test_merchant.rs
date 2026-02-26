@@ -4,7 +4,7 @@ use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::DataKey;
 use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{Address, Env};
+use soroban_sdk::{Address, BytesN, Env};
 
 fn setup_test() -> (Env, ShadeClient<'static>, Address) {
     let env = Env::default();
@@ -14,7 +14,8 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address) {
     let client = ShadeClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     (env, client, contract_id)
 }
@@ -29,6 +30,7 @@ fn test_register_merchant_successfully() {
     let merchant_data = client.get_merchant(&1u64);
     assert_eq!(merchant_data.id, 1);
     assert_eq!(merchant_data.address, merchant);
+    assert_eq!(merchant_data.account, client.get_merchant_account(&1u64));
     assert!(merchant_data.active);
 
     assert!(client.is_merchant(&merchant));

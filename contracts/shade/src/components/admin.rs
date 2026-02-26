@@ -4,6 +4,8 @@ use crate::events;
 use crate::types::DataKey;
 use soroban_sdk::{panic_with_error, token, Address, Env, Vec};
 
+const FEE_UPDATE_DELAY_SECS: u64 = 3600;
+
 pub fn add_accepted_token(env: &Env, admin: &Address, token: &Address) {
     reentrancy::enter(env);
     core::assert_admin(env, admin);
@@ -80,7 +82,7 @@ pub fn set_account_wasm_hash(env: &Env, admin: &Address, wasm_hash: &soroban_sdk
     core::assert_admin(env, admin);
     env.storage()
         .persistent()
-        .set(&DataKey::AccountWasmHash, wasm_hash);
+        .set(&DataKey::MerchantAccountWasmHash, wasm_hash);
     reentrancy::exit(env);
 }
 
@@ -92,15 +94,54 @@ pub fn set_fee(env: &Env, admin: &Address, token: &Address, fee: i128) {
         panic_with_error!(env, ContractError::TokenNotAccepted);
     }
 
-    env.storage()
+    let has_active_fee = env
+        .storage()
         .persistent()
-        .set(&DataKey::TokenFee(token.clone()), &fee);
+        .has(&DataKey::TokenFee(token.clone()));
+
+    if has_active_fee {
+        let activation_time = env.ledger().timestamp() + FEE_UPDATE_DELAY_SECS;
+        env.storage()
+            .persistent()
+            .set(&DataKey::PendingTokenFee(token.clone()), &fee);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PendingTokenFeeActivation(token.clone()), &activation_time);
+    } else {
+        env.storage()
+            .persistent()
+            .set(&DataKey::TokenFee(token.clone()), &fee);
+    }
 
     events::publish_fee_set_event(env, token.clone(), fee, env.ledger().timestamp());
     reentrancy::exit(env);
 }
 
 pub fn get_fee(env: &Env, token: &Address) -> i128 {
+    let now = env.ledger().timestamp();
+    if let Some(pending_fee) = env
+        .storage()
+        .persistent()
+        .get::<_, i128>(&DataKey::PendingTokenFee(token.clone()))
+    {
+        let activation_time: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PendingTokenFeeActivation(token.clone()))
+            .unwrap_or(now + 1);
+        if now >= activation_time {
+            env.storage()
+                .persistent()
+                .set(&DataKey::TokenFee(token.clone()), &pending_fee);
+            env.storage()
+                .persistent()
+                .remove(&DataKey::PendingTokenFee(token.clone()));
+            env.storage()
+                .persistent()
+                .remove(&DataKey::PendingTokenFeeActivation(token.clone()));
+        }
+    }
+
     env.storage()
         .persistent()
         .get(&DataKey::TokenFee(token.clone()))

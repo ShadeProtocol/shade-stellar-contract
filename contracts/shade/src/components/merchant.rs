@@ -1,4 +1,4 @@
-use crate::components::access_control;
+use crate::components::{access_control, account_factory};
 use crate::components::core as core_component;
 use crate::errors::ContractError;
 use crate::events;
@@ -29,9 +29,24 @@ pub fn register_merchant(env: &Env, merchant: &Address) {
 
     let new_id = merchant_count + 1;
 
+    let wasm_hash: BytesN<32> = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantAccountWasmHash)
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::WasmHashNotSet));
+
+    let merchant_account = account_factory::deploy_account(
+        env,
+        merchant.clone(),
+        env.current_contract_address(),
+        new_id,
+        wasm_hash,
+    );
+
     let merchant_data = Merchant {
         id: new_id,
         address: merchant.clone(),
+        account: merchant_account.clone(),
         active: true,
         verified: false,
         date_registered: env.ledger().timestamp(),
@@ -46,6 +61,9 @@ pub fn register_merchant(env: &Env, merchant: &Address) {
     env.storage()
         .persistent()
         .set(&DataKey::MerchantCount, &new_id);
+    env.storage()
+        .persistent()
+        .set(&DataKey::MerchantAccount(new_id), &merchant_account);
 
     events::publish_merchant_registered_event(
         env,
@@ -248,7 +266,8 @@ pub fn restrict_merchant_account(
     let account_address: Address = env
         .storage()
         .persistent()
-        .get(&DataKey::MerchantAccount(merchant_id))
+        .get::<_, Merchant>(&DataKey::Merchant(merchant_id))
+        .map(|m| m.account)
         .unwrap_or_else(|| merchant_address.clone());
 
     let client = MerchantAccountClient::new(env, &account_address);
@@ -276,6 +295,15 @@ pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
         .get(&DataKey::MerchantId(merchant.clone()))
         .unwrap();
 
+    let mut merchant_data: Merchant = env
+        .storage()
+        .persistent()
+        .get(&DataKey::Merchant(merchant_id))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantNotFound));
+    merchant_data.account = account.clone();
+    env.storage()
+        .persistent()
+        .set(&DataKey::Merchant(merchant_id), &merchant_data);
     env.storage()
         .persistent()
         .set(&DataKey::MerchantAccount(merchant_id), account);
@@ -284,6 +312,7 @@ pub fn set_merchant_account(env: &Env, merchant: &Address, account: &Address) {
 pub fn get_merchant_account(env: &Env, merchant_id: u64) -> Address {
     env.storage()
         .persistent()
-        .get(&DataKey::MerchantAccount(merchant_id))
+        .get::<_, Merchant>(&DataKey::Merchant(merchant_id))
+        .map(|m| m.account)
         .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantAccountNotSet))
 }

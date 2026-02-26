@@ -2,8 +2,8 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{InvoiceStatus, Role};
-use soroban_sdk::testutils::Address as _;
-use soroban_sdk::{Address, Env, String};
+use soroban_sdk::testutils::{Address as _, Ledger as _};
+use soroban_sdk::{Address, BytesN, Env, String};
 
 fn setup_invoice_test() -> (
     Env,
@@ -20,7 +20,8 @@ fn setup_invoice_test() -> (
     let client = ShadeClient::new(&env, &contract_id);
 
     let admin = Address::generate(&env);
-    client.initialize(&admin);
+    let account_wasm_hash = BytesN::from_array(&env, &[0; 32]);
+    client.initialize(&admin, &account_wasm_hash);
 
     let manager = Address::generate(&env);
     let merchant = Address::generate(&env);
@@ -112,7 +113,9 @@ fn test_fee_preservation() {
 
     // Set custom fee
     let fee = 250i128;
+    env.ledger().set_timestamp(100);
     client.set_fee(&admin, &token, &fee);
+    env.ledger().set_timestamp(100 + 3600);
 
     // Create invoice
     let invoice_id = client.create_invoice(
