@@ -96,6 +96,7 @@ fn test_successful_payment_with_fee() {
     token_client.mint(&customer, &1000);
 
     // Customer pays invoice
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // event assertion (merchant_id should be 1 for first merchant)
@@ -151,6 +152,7 @@ fn test_payment_with_zero_fee() {
     token_client.mint(&customer, &1000);
 
     // Customer pays invoice
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Verify balances
@@ -187,6 +189,7 @@ fn test_payment_with_maximum_fee() {
     token_client.mint(&customer, &1000);
 
     // Customer pays invoice
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Verify balances
@@ -219,6 +222,7 @@ fn test_payment_rejects_expired_invoice() {
     token_client.mint(&customer, &1000);
 
     env.ledger().set_timestamp(expires_at);
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 }
 
@@ -245,6 +249,7 @@ fn test_payment_invoice_already_paid() {
     token_client.mint(&customer, &2000);
 
     // Customer pays invoice first time
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Attempt to pay again (should panic with InvalidInvoiceStatus)
@@ -274,6 +279,7 @@ fn test_payment_insufficient_funds() {
     token_client.mint(&customer, &500);
 
     // Customer attempts to pay invoice (should panic due to insufficient funds)
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 }
 
@@ -304,6 +310,7 @@ fn test_payment_token_not_accepted() {
     token_client.mint(&customer, &1000);
 
     // Customer attempts to pay invoice (should panic - token not accepted)
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 }
 
@@ -328,6 +335,7 @@ fn test_payment_merchant_account_not_set() {
     token_client.mint(&customer, &1000);
 
     // Customer attempts to pay invoice (should panic - merchant account not set)
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 }
 
@@ -353,6 +361,7 @@ fn test_payment_payer_authorization() {
     token_client.mint(&customer, &1000);
 
     // Customer pays invoice (auth is automatically mocked)
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Verify payer is recorded in invoice
@@ -386,6 +395,7 @@ fn test_payment_updates_invoice_timestamps() {
     token_client.mint(&customer, &1000);
 
     // Customer pays invoice
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Get invoice after payment
@@ -419,6 +429,7 @@ fn test_fee_calculation_accuracy() {
     token_client.mint(&customer, &10000);
 
     // Customer pays invoice
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice(&customer, &invoice_id);
 
     // Verify balances with 1% fee
@@ -446,6 +457,7 @@ fn test_partial_payment_two_equal_steps_reaches_paid() {
     let token_client = token::StellarAssetClient::new(&env, &token);
     token_client.mint(&customer, &1000);
 
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
     let mid_invoice = shade_client.get_invoice(&invoice_id);
     assert_eq!(mid_invoice.status, InvoiceStatus::PartiallyPaid);
@@ -482,6 +494,7 @@ fn test_partial_payment_collects_fees_proportionally_each_step() {
     let token_client = token::StellarAssetClient::new(&env, &token);
     token_client.mint(&customer, &1000);
 
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice_partial(&customer, &invoice_id, &500);
     let token_balance_client = token::TokenClient::new(&env, &token);
     assert_eq!(token_balance_client.balance(&shade_contract_id), 25);
@@ -509,6 +522,7 @@ fn test_partial_payment_cannot_exceed_requested_amount() {
     let token_client = token::StellarAssetClient::new(&env, &token);
     token_client.mint(&customer, &1500);
 
+    shade_client.finalize_invoice(&merchant, &invoice_id);
     shade_client.pay_invoice_partial(&customer, &invoice_id, &700);
     shade_client.pay_invoice_partial(&customer, &invoice_id, &400);
 }

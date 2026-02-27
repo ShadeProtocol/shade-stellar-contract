@@ -60,6 +60,10 @@ fn test_invoice_state_validation() {
 
     // Verify initial state
     let invoice = client.get_invoice(&invoice_id);
+    assert_eq!(invoice.status, InvoiceStatus::Draft);
+    
+    client.finalize_invoice(&merchant, &invoice_id);
+    let invoice = client.get_invoice(&invoice_id);
     assert_eq!(invoice.status, InvoiceStatus::Pending);
     assert_eq!(invoice.payer, None);
     assert_eq!(invoice.date_paid, None);
@@ -98,7 +102,9 @@ fn test_multiple_invoices_independent() {
             .set(&DataKey::Invoice(id_2), &inv_2);
     });
 
-    // Verify first is still Pending
+    // Verify first is still Draft
+    assert_eq!(client.get_invoice(&id_1).status, InvoiceStatus::Draft);
+    client.finalize_invoice(&merchant, &id_1);
     assert_eq!(client.get_invoice(&id_1).status, InvoiceStatus::Pending);
     assert_eq!(client.get_invoice(&id_2).status, InvoiceStatus::Paid);
 }
@@ -165,5 +171,6 @@ fn test_contract_pause_and_unpause() {
         &token,
         &None,
     );
+    client.finalize_invoice(&merchant, &invoice_id);
     assert!(invoice_id > 0);
 }

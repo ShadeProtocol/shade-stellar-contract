@@ -25,6 +25,11 @@ fn assert_latest_invoice_event(
     expected_token: &Address,
 ) {
     let events = env.events().all();
+    if events.is_empty() {
+        std::println!("DEBUG: events.all() is empty!");
+    } else {
+        std::println!("DEBUG: events.all().len() = {}", events.len());
+    }
     assert!(!events.is_empty(), "No events captured for invoice!");
 
     let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
@@ -98,9 +103,9 @@ fn test_create_and_get_invoice_success() {
     let invoice = client.get_invoice(&invoice_id);
     assert_eq!(invoice.status, InvoiceStatus::Draft);
 
-    client.finalize_invoice(&merchant, &invoice_id);
-
     assert_latest_invoice_event(&env, &contract_id, invoice_id, &merchant, amount, &token);
+
+    client.finalize_invoice(&merchant, &invoice_id);
 
     let invoice = client.get_invoice(&invoice_id);
 

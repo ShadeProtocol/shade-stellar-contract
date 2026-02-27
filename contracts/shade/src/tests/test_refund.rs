@@ -63,6 +63,7 @@ fn setup_paid_invoice(pay_timestamp: u64) -> RefundTestContext<'static> {
     token_mint.mint(&payer, &amount);
 
     env.ledger().set_timestamp(pay_timestamp);
+    client.finalize_invoice(&merchant, &invoice_id);
     client.pay_invoice(&payer, &invoice_id);
 
     RefundTestContext {
@@ -343,6 +344,7 @@ fn test_partial_refund_with_fee() {
     token_mint.mint(&payer, &amount);
 
     env.ledger().set_timestamp(1_000);
+    client.finalize_invoice(&merchant, &invoice_id);
     client.pay_invoice(&payer, &invoice_id);
 
     let tok = token::TokenClient::new(&env, &token);
