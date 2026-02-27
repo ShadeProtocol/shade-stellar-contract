@@ -69,7 +69,7 @@ fn test_admin_restriction() {
 
     assert_eq!(last_event.0, shade_id);
     let topic = Symbol::from_val(&env, &last_event.1.get(0).unwrap());
-    assert_eq!(topic, Symbol::new(&env, "account_restricted_event"));
+    assert_eq!(topic, Symbol::new(&env, "AccountRestrictedEvent"));
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn test_unauthorized_access_merchant() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #2)")] // MerchantNotFound
+#[should_panic(expected = "HostError: Error(Contract, #6)")] // MerchantNotFound
 fn test_invalid_merchant() {
     let (env, shade_client, _shade_id, _account_client, admin, _merchant) =
         setup_test_with_account();
