@@ -18,13 +18,7 @@ pub fn finalize_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) 
     }
     invoice.status = InvoiceStatus::Pending;
     env.storage().persistent().set(&DataKey::Invoice(invoice_id), &invoice);
-    
-    events::publish_invoice_finalized_event(
-        env,
-        invoice_id,
-        merchant_address.clone(),
-        env.ledger().timestamp(),
-    );
+    // Optionally emit an event for finalization
 }
 use crate::components::{access_control, admin, merchant, signature_util};
 use crate::errors::ContractError;

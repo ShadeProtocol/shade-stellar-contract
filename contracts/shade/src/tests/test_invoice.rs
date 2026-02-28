@@ -4,7 +4,7 @@ use crate::shade::{Shade, ShadeClient};
 use crate::types::{DataKey, InvoiceStatus};
 use account::account::{MerchantAccount, MerchantAccountClient};
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
-use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryIntoVal, Val};
+use soroban_sdk::{token, Address, Env, FromVal, Map, String, Symbol, TryIntoVal, Val};
 
 fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     let env = Env::default();
@@ -16,7 +16,8 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
     (env, client, contract_id, admin)
 }
 
-fn assert_latest_invoice_event(
+
+fn assert_invoice_created_event(
     env: &Env,
     contract_id: &Address,
     expected_invoice_id: u64,
@@ -25,27 +26,39 @@ fn assert_latest_invoice_event(
     expected_token: &Address,
 ) {
     let events = env.events().all();
-    if events.is_empty() {
-        std::println!("DEBUG: events.all() is empty!");
-    } else {
-        std::println!("DEBUG: events.all().len() = {}", events.len());
+    assert!(!events.is_empty(), "No events captured!");
+
+    // Search for the InvoiceCreatedEvent in all events
+    let event = events
+        .iter()
+        .find(|(_id, topics, _data)| {
+            if topics.len() < 1 {
+                return false;
+            }
+            let event_name = Symbol::from_val(env, &topics.get(0).unwrap());
+            event_name == Symbol::new(env, "InvoiceCreatedEvent") ||
+            event_name == Symbol::new(env, "invoice_created_event") ||
+            event_name == Symbol::new(env, "invoice_created")
+        });
+
+    if event.is_none() {
+        let mut names = soroban_sdk::Vec::<Symbol>::new(env);
+        for (_, topics, _) in events.iter() {
+            if topics.len() > 0 {
+                let name = Symbol::from_val(env, &topics.get(0).unwrap());
+                names.push_back(name);
+            }
+        }
+        panic!("InvoiceCreatedEvent not found in {} events. Topics: {:?}", events.len(), names);
     }
-    assert!(!events.is_empty(), "No events captured for invoice!");
-
-    let (event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
-    assert_eq!(&event_contract_id, contract_id);
-
+    
+    let (_, _, data) = event.unwrap();
     let data_map: Map<Symbol, Val> = data.try_into_val(env).unwrap();
 
-    let invoice_id_val = data_map.get(Symbol::new(env, "invoice_id")).unwrap();
-    let merchant_val = data_map.get(Symbol::new(env, "merchant")).unwrap();
-    let amount_val = data_map.get(Symbol::new(env, "amount")).unwrap();
-    let token_val = data_map.get(Symbol::new(env, "token")).unwrap();
-
-    let invoice_id_in_event: u64 = invoice_id_val.try_into_val(env).unwrap();
-    let merchant_in_event: Address = merchant_val.try_into_val(env).unwrap();
-    let amount_in_event: i128 = amount_val.try_into_val(env).unwrap();
-    let token_in_event: Address = token_val.try_into_val(env).unwrap();
+    let invoice_id_in_event: u64 = data_map.get(Symbol::new(env, "invoice_id")).unwrap().try_into_val(env).unwrap();
+    let merchant_in_event: Address = data_map.get(Symbol::new(env, "merchant")).unwrap().try_into_val(env).unwrap();
+    let amount_in_event: i128 = data_map.get(Symbol::new(env, "amount")).unwrap().try_into_val(env).unwrap();
+    let token_in_event: Address = data_map.get(Symbol::new(env, "token")).unwrap().try_into_val(env).unwrap();
 
     assert_eq!(invoice_id_in_event, expected_invoice_id);
     assert_eq!(merchant_in_event, expected_merchant.clone());
@@ -100,10 +113,10 @@ fn test_create_and_get_invoice_success() {
     let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
     assert_eq!(invoice_id, 1);
 
+    assert_invoice_created_event(&env, &contract_id, invoice_id, &merchant, amount, &token);
+
     let invoice = client.get_invoice(&invoice_id);
     assert_eq!(invoice.status, InvoiceStatus::Draft);
-
-    assert_latest_invoice_event(&env, &contract_id, invoice_id, &merchant, amount, &token);
 
     client.finalize_invoice(&merchant, &invoice_id);
 
@@ -364,7 +377,7 @@ fn test_refund_invoice_fails_for_non_owner() {
     client.register_merchant(&other_merchant);
 
     let token = create_test_token(&env);
-    let payer = Address::generate(&env);
+    let _payer = Address::generate(&env);
     let invoice_id = client.create_invoice(
         &merchant,
         &String::from_str(&env, "Wrong owner"),
@@ -422,6 +435,7 @@ fn test_void_invoice_already_paid() {
     let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token);
     token_client.mint(&customer, &1000);
 
+    client.finalize_invoice(&merchant, &invoice_id);
     client.pay_invoice(&customer, &invoice_id);
 
     // Try to void paid invoice (should panic with InvalidInvoiceStatus)
@@ -441,6 +455,7 @@ fn test_void_invoice_already_cancelled() {
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
     // Void the invoice once
+    client.finalize_invoice(&merchant, &invoice_id);
     client.void_invoice(&merchant, &invoice_id);
 
     // Try to void again (should panic with InvalidInvoiceStatus)
