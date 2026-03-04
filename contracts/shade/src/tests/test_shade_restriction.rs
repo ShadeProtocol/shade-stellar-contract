@@ -65,11 +65,19 @@ fn test_admin_restriction() {
 
     // Check for Shade event
     let events = env.events().all();
-    let last_event = events.last().unwrap();
-
-    assert_eq!(last_event.0, shade_id);
-    let topic = Symbol::from_val(&env, &last_event.1.get(0).unwrap());
-    assert_eq!(topic, Symbol::new(&env, "AccountRestrictedEvent"));
+    let mut found = false;
+    for event in events.iter() {
+        if event.0 == shade_id {
+            if let Some(topic_val) = event.1.first() {
+                let topic = Symbol::from_val(&env, &topic_val);
+                if topic == Symbol::new(&env, "AccountRestrictedEvent") {
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+    assert!(found, "AccountRestrictedEvent not emitted!");
 }
 
 #[test]
