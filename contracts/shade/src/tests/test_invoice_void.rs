@@ -21,12 +21,15 @@ fn setup_test() -> (Env, ShadeClient<'static>, Address, Address) {
 /// Verify InvoiceCancelled event is emitted.
 #[test]
 fn test_void_invoice_success() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    let token = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.add_accepted_token(&admin, &token);
     let description = String::from_str(&env, "Test Invoice");
     let amount: i128 = 1000;
     let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &None);
@@ -55,12 +58,15 @@ fn test_void_invoice_success() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_void_invoice_unauthorized_random_address() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    let token = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.add_accepted_token(&admin, &token);
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
@@ -76,7 +82,7 @@ fn test_void_invoice_unauthorized_random_address() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_void_invoice_unauthorized_different_merchant() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant1 = Address::generate(&env);
     client.register_merchant(&merchant1);
@@ -84,7 +90,10 @@ fn test_void_invoice_unauthorized_different_merchant() {
     let merchant2 = Address::generate(&env);
     client.register_merchant(&merchant2);
 
-    let token = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.add_accepted_token(&admin, &token);
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id = client.create_invoice(&merchant1, &description, &1000, &token, &None);
 
@@ -189,12 +198,15 @@ fn test_pay_voided_invoice() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_void_invoice_already_cancelled() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    let token = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.add_accepted_token(&admin, &token);
     let description = String::from_str(&env, "Test Invoice");
     let invoice_id = client.create_invoice(&merchant, &description, &1000, &token, &None);
 
@@ -211,7 +223,7 @@ fn test_void_invoice_already_cancelled() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #8)")]
 fn test_void_nonexistent_invoice() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
@@ -270,12 +282,15 @@ fn test_void_refunded_invoice() {
 /// Create multiple invoices, void one, and verify that others remain unaffected.
 #[test]
 fn test_void_invoice_state_isolation() {
-    let (env, client, _contract_id, _admin) = setup_test();
+    let (env, client, _contract_id, admin) = setup_test();
 
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
-    let token = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    client.add_accepted_token(&admin, &token);
     let description = String::from_str(&env, "Test Invoice");
 
     let invoice_id_1 = client.create_invoice(&merchant, &description, &1000, &token, &None);
