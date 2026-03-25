@@ -100,7 +100,11 @@ pub fn set_fee(env: &Env, admin: &Address, token: &Address, fee: i128) {
         .has(&DataKey::TokenFee(token.clone()));
 
     if has_active_fee {
-        let activation_time = env.ledger().timestamp() + FEE_UPDATE_DELAY_SECS;
+        let activation_time = env
+            .ledger()
+            .timestamp()
+            .checked_add(FEE_UPDATE_DELAY_SECS)
+            .unwrap_or_else(|| panic_with_error!(env, ContractError::TimestampOverflow));
         env.storage()
             .persistent()
             .set(&DataKey::PendingTokenFee(token.clone()), &fee);

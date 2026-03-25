@@ -1,0 +1,21 @@
+[package]
+name = "shade-fuzz"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+# Required metadata for cargo-fuzz
+[package.metadata]
+cargo-fuzz = true
+
+[[bin]]
+name = "fuzz_expiry_time"
+path = "fuzz_targets/fuzz_expiry_time.rs"
+test = false
+doc = false
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Isolate this crate from the parent workspace so `cargo fuzz` works correctly.
+[workspace]

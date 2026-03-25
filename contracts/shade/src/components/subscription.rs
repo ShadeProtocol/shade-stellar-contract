@@ -138,7 +138,10 @@ pub fn charge_subscription(env: &Env, subscription_id: u64) {
     // subsequent charges must wait for the full interval to elapse.
     let now = env.ledger().timestamp();
     if subscription.last_charged > 0 {
-        let next_charge_time = subscription.last_charged + plan.interval;
+        let next_charge_time = subscription
+            .last_charged
+            .checked_add(plan.interval)
+            .unwrap_or_else(|| panic_with_error!(env, ContractError::TimestampOverflow));
         if now < next_charge_time {
             panic_with_error!(env, ContractError::ChargeTooEarly);
         }
