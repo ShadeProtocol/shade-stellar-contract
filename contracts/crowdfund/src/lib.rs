@@ -2,7 +2,7 @@
 
 mod errors;
 #[cfg(test)]
-mod test;
+mod tests;
 
 use errors::CrowdfundError;
 use soroban_sdk::{
@@ -11,11 +11,13 @@ use soroban_sdk::{
 };
 
 #[contractclient(name = "InvoicePaymentClient")]
+#[allow(dead_code)]
 trait InvoicePayment {
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64);
 }
 
 #[contractclient(name = "MerchantAccountRefundClient")]
+#[allow(dead_code)]
 trait MerchantAccountRefund {
     fn refund(env: Env, token: Address, amount: i128, to: Address);
 }
@@ -92,6 +94,7 @@ pub struct PledgeCommentAddedEvent {
     pub comment: String,
 }
 
+#[contractevent]
 pub struct PledgeReceivedEvent {
     pub contributor: Address,
     pub amount: i128,
