@@ -103,6 +103,54 @@ pub struct BatchRefundProcessedEvent {
     pub contributor_count: u32,
 }
 
+// ── Financial penalty events (#360) ──────────────────────────────────────────
+#[contractevent]
+pub struct PenaltyConfiguredEvent {
+    pub bps: u32,
+}
+
+#[contractevent]
+pub struct MaliciousReportFiledEvent {
+    pub reporter: Address,
+    pub reason: String,
+    pub vote_deadline: u64,
+}
+
+#[contractevent]
+pub struct MaliceVoteCastEvent {
+    pub voter: Address,
+    pub approve: bool,
+    pub weight: i128,
+}
+
+#[contractevent]
+pub struct MaliceReportResolvedEvent {
+    pub approved: bool,
+    pub approval_weight: i128,
+    pub rejection_weight: i128,
+    pub snapshot_raised: i128,
+}
+
+#[contractevent]
+pub struct PenaltySlashedEvent {
+    pub amount: i128,
+    pub source: Address,
+    pub pool_balance: i128,
+}
+
+#[contractevent]
+pub struct PenaltyRefundClaimedEvent {
+    pub backer: Address,
+    pub amount: i128,
+    pub remaining_pool: i128,
+}
+
+#[contractevent]
+pub struct PenaltySweptEvent {
+    pub recipient: Address,
+    pub amount: i128,
+}
+
 #[contracttype]
 enum DataKey {
     Organizer,
@@ -149,6 +197,41 @@ enum DataKey {
     MatchingPool,
     // Public comment attached to a contributor pledge.
     PledgeComment(Address),
+    // ── Financial penalty for malicious campaigns (#360) ─────────────────────
+    /// Penalty in basis points (max 5_000 = 50%). Locked after first pledge.
+    PenaltyBps,
+    /// True once `PenaltyBps` is locked and cannot be modified.
+    PenaltyLocked,
+    /// Unix timestamp when the active malice voting window opens.
+    MaliceVoteStart,
+    /// Unix timestamp when the active malice voting window closes.
+    MaliceVoteDeadline,
+    /// Address that filed the active malice report.
+    MaliceReporter,
+    /// Off-chain evidence / reason string supplied by the reporter.
+    MaliceReason,
+    /// Cumulative pledge-weighted approvals for the active malice report.
+    PenaltyApprovalWeight,
+    /// Cumulative pledge-weighted rejections for the active malice report.
+    PenaltyRejectionWeight,
+    /// Tracks whether a backer has voted on the active malice report.
+    PenaltyVote(Address),
+    /// True when the active report has been resolved.
+    PenaltyResolved,
+    /// Outcome of the resolution: true if penalty was approved by voters.
+    PenaltyApproved,
+    /// Current balance of the on-chain penalty pool (slashed tokens).
+    PenaltyPool,
+    /// `Raised` snapshot taken at the moment the penalty was approved.
+    PenaltySnapshotRaised,
+    /// Sum of all backer penalty refunds already distributed.
+    PenaltyTotalClaimed,
+    /// Amount of penalty pool already claimed by a specific backer.
+    BackerPenaltyClaimed(Address),
+    /// Unix timestamp at which unclaimed penalty becomes sweepable.
+    PenaltySweepUnlock,
+    /// Address authorized to receive unclaimed penalty on sweep.
+    PenaltyRecipient,
 }
 
 #[contract]
@@ -157,6 +240,26 @@ pub struct CrowdfundContract;
 #[contractimpl]
 impl CrowdfundContract {
     const MAX_COMMENT_BYTES: u32 = 280;
+    /// Maximum self-imposed penalty (50% of payout) for malicious campaigns.
+    const MAX_PENALTY_BPS: u32 = 5_000;
+    /// Length of the malice voting window (7 days).
+    const PENALTY_VOTE_WINDOW: u64 = 604_800;
+    /// Time after resolution that unclaimed penalty may be swept (≈6 months).
+    const PENALTY_SWEEP_AFTER_SECS: u64 = 15_778_800;
+    /// Reporter must hold at least this fraction of raised (basis points) to
+    /// open a voting window — anti-griefing floor (default 1% = 100 bps).
+    const MIN_REPORTER_PLEDGE_BPS: u32 = 100;
+
+    // ── Penalty helpers (#360) ─────────────────────────────────────────────────
+    /// Returns true if a malice report is currently in flight.
+    fn malice_report_active(env: &Env) -> bool {
+        env.storage().persistent().has(&DataKey::MaliceVoteStart)
+            && !env
+                .storage()
+                .persistent()
+                .get(&DataKey::PenaltyResolved)
+                .unwrap_or(false)
+    }
     /// Initialise a campaign. Sets the funding goal (in token base units)
     /// and the deadline (Unix timestamp after which no contributions are
     /// accepted). Only callable once.
@@ -358,6 +461,9 @@ impl CrowdfundContract {
     }
 
     /// Withdraw funds to the organizer after deadline if goal was met (#303).
+    /// If a financial penalty was approved by backer vote and a non-zero
+    /// `PenaltyBps` is set, the slashed portion is detained in the on-chain
+    /// penalty pool instead of being paid out.
     pub fn execute_campaign(env: Env) {
         let organizer: Address = env
             .storage()
@@ -375,6 +481,19 @@ impl CrowdfundContract {
 
         if env.ledger().timestamp() <= deadline {
             panic_with_error!(&env, CrowdfundError::CampaignNotEnded);
+        }
+
+        // Block withdrawal while a malice proposal is still being voted on so
+        // the organizer cannot front-run the penalty (#360).
+        if Self::malice_report_active(&env) {
+            let deadline_ts: u64 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::MaliceVoteDeadline)
+                .unwrap_or(0);
+            if env.ledger().timestamp() <= deadline_ts {
+                panic_with_error!(&env, CrowdfundError::MaliceVoteWindowActive);
+            }
         }
 
         let goal: i128 = env
@@ -417,10 +536,26 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contract_addr, &organizer, &raised);
 
-        CampaignExecutedEvent { amount: raised }.publish(&env);
+        // Compute and lock away penalty amount if approved (#360).
+        let (payout, slashed) = Self::compute_and_lock_penalty(&env, raised);
+        if slashed > 0 {
+            PenaltySlashedEvent {
+                amount: slashed,
+                source: organizer.clone(),
+                pool_balance: env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::PenaltyPool)
+                    .unwrap_or(0),
+            }
+            .publish(&env);
+        }
+
+        token::TokenClient::new(&env, &token_addr)
+            .transfer(&contract_addr, &organizer, &payout);
+
+        CampaignExecutedEvent { amount: payout }.publish(&env);
     }
 
     /// Allow a backer to reclaim their pledge after deadline if goal was not met (#304).
@@ -746,6 +881,8 @@ impl CrowdfundContract {
 
     /// Release the proportional funds for an unlocked, unreleased milestone to the organizer.
     /// Can only be called after the campaign deadline and goal is met.
+    /// If a financial penalty was approved by backer vote, the matching
+    /// slice is detained in the on-chain penalty pool (#360).
     pub fn release_milestone(env: Env, index: u32) {
         let organizer: Address = env
             .storage()
@@ -763,6 +900,18 @@ impl CrowdfundContract {
 
         if env.ledger().timestamp() <= deadline {
             panic_with_error!(&env, CrowdfundError::CampaignNotEnded);
+        }
+
+        // Block release while a malice proposal is still being voted on (#360).
+        if Self::malice_report_active(&env) {
+            let vote_dl: u64 = env
+                .storage()
+                .persistent()
+                .get(&DataKey::MaliceVoteDeadline)
+                .unwrap_or(0);
+            if env.ledger().timestamp() <= vote_dl {
+                panic_with_error!(&env, CrowdfundError::MaliceVoteWindowActive);
+            }
         }
 
         let goal: i128 = env
@@ -835,10 +984,30 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contract_addr, &organizer, &amount);
 
-        MilestoneReleasedEvent { index, amount }.publish(&env);
+        // Apply milestone-scoped penalty to the released amount (#360).
+        let (payout, slashed) = Self::compute_and_lock_penalty(&env, amount);
+        if slashed > 0 {
+            PenaltySlashedEvent {
+                amount: slashed,
+                source: organizer.clone(),
+                pool_balance: env
+                    .storage()
+                    .persistent()
+                    .get(&DataKey::PenaltyPool)
+                    .unwrap_or(0),
+            }
+            .publish(&env);
+        }
+
+        token::TokenClient::new(&env, &token_addr)
+            .transfer(&contract_addr, &organizer, &payout);
+
+        MilestoneReleasedEvent {
+            index,
+            amount: payout,
+        }
+        .publish(&env);
     }
 
     /// Returns the pledge amount recorded for a given contributor.
@@ -899,6 +1068,432 @@ impl CrowdfundContract {
             .get(&DataKey::Raised)
             .unwrap_or(0);
         raised >= goal
+    }
+
+    // ── Financial penalties for malicious campaigns (#360) ─────────────────────
+
+    /// Set the self-imposed penalty basis points (≤ `MAX_PENALTY_BPS`) that
+    /// the organizer commits to if backers vote the campaign malicious.
+    /// Must be called **before** the first pledge lands (penalty is locked
+    /// permanently once any contribution arrives) and **before** a malice
+    /// proposal is filed. Pure organizer signal — values can be repeatedly
+    /// re-tuned while still unlocked.
+    pub fn set_penalty_bps(env: Env, bps: u32) {
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+        organizer.require_auth();
+        if env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyLocked)
+            .unwrap_or(false)
+        {
+            panic_with_error!(&env, CrowdfundError::PenaltyLocked);
+        }
+        if bps > Self::MAX_PENALTY_BPS {
+            panic_with_error!(&env, CrowdfundError::PenaltyBpsInvalid);
+        }
+        if Self::malice_report_active(&env) {
+            panic_with_error!(&env, CrowdfundError::MaliceReportActive);
+        }
+        env.storage().persistent().set(&DataKey::PenaltyBps, &bps);
+        PenaltyConfiguredEvent { bps }.publish(&env);
+    }
+
+    /// File a malicious-campaign report. Must be invoked by a backer whose
+    /// pledge is at least `MIN_REPORTER_PLEDGE_BPS` of the currently raised
+    /// amount (anti-griefing floor). Organizers may not file against
+    /// themselves. Opens the `PENALTY_VOTE_WINDOW`-long voting session.
+    pub fn report_malicious(env: Env, reporter: Address, reason: String) {
+        reporter.require_auth();
+        if Self::malice_report_active(&env) {
+            panic_with_error!(&env, CrowdfundError::MaliceReportActive);
+        }
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+        if reporter == organizer {
+            panic_with_error!(&env, CrowdfundError::NotOrganizer);
+        }
+        let pledge: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Pledge(reporter.clone()))
+            .unwrap_or(0);
+        if pledge <= 0 {
+            panic_with_error!(&env, CrowdfundError::NoPledge);
+        }
+        let raised: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Raised)
+            .unwrap_or(0);
+        let required = raised.saturating_mul(Self::MIN_REPORTER_PLEDGE_BPS as i128) / 10_000;
+        if pledge < required {
+            panic_with_error!(&env, CrowdfundError::InsufficientReporterStake);
+        }
+        let now = env.ledger().timestamp();
+        env.storage()
+            .persistent()
+            .set(&DataKey::MaliceVoteStart, &now);
+        env.storage().persistent().set(
+            &DataKey::MaliceVoteDeadline,
+            &now.saturating_add(Self::PENALTY_VOTE_WINDOW),
+        );
+        env.storage()
+            .persistent()
+            .set(&DataKey::MaliceReporter, &reporter.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::MaliceReason, &reason.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyApprovalWeight, &0_i128);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyRejectionWeight, &0_i128);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyResolved, &false);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyApproved, &false);
+        MaliciousReportFiledEvent {
+            reporter,
+            reason,
+            vote_deadline: now.saturating_add(Self::PENALTY_VOTE_WINDOW),
+        }
+        .publish(&env);
+    }
+
+    /// Cast a backer's weighted vote on the active malice report. Vote window
+    /// must still be open; one vote per backer (no coercion).
+    pub fn vote_on_malice(env: Env, voter: Address, approve: bool) {
+        voter.require_auth();
+        if !Self::malice_report_active(&env) {
+            panic_with_error!(&env, CrowdfundError::NoMaliceReport);
+        }
+        let deadline: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MaliceVoteDeadline)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NoMaliceReport));
+        if env.ledger().timestamp() > deadline {
+            panic_with_error!(&env, CrowdfundError::MaliceVoteWindowExpired);
+        }
+        let vote_key = DataKey::PenaltyVote(voter.clone());
+        if env.storage().persistent().has(&vote_key) {
+            panic_with_error!(&env, CrowdfundError::PenaltyVoteAlreadyCast);
+        }
+        let weight: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Pledge(voter.clone()))
+            .unwrap_or(0);
+        if weight <= 0 {
+            panic_with_error!(&env, CrowdfundError::NotBacker);
+        }
+        let tally_key = if approve {
+            DataKey::PenaltyApprovalWeight
+        } else {
+            DataKey::PenaltyRejectionWeight
+        };
+        let current: i128 = env.storage().persistent().get(&tally_key).unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&tally_key, &current.saturating_add(weight));
+        env.storage().persistent().set(&vote_key, &approve);
+        MaliceVoteCastEvent {
+            voter,
+            approve,
+            weight,
+        }
+        .publish(&env);
+    }
+
+    /// Finalize the active malice report. Callable by anyone once the vote
+    /// window has closed. Approved iff approval weight is a strict majority
+    /// of `Raised` at the moment of resolution. Approval locks-in the penalty
+    /// to be applied on the next `execute_campaign` / `release_milestone`.
+    pub fn resolve_malice_report(env: Env) {
+        if !Self::malice_report_active(&env) {
+            panic_with_error!(&env, CrowdfundError::NoMaliceReport);
+        }
+        let deadline: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::MaliceVoteDeadline)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NoMaliceReport));
+        if env.ledger().timestamp() <= deadline {
+            panic_with_error!(&env, CrowdfundError::MaliceVoteWindowActive);
+        }
+        let approval: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyApprovalWeight)
+            .unwrap_or(0);
+        let rejection: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyRejectionWeight)
+            .unwrap_or(0);
+        let raised: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Raised)
+            .unwrap_or(0);
+        let approved = approval > (raised / 2);
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyResolved, &true);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyApproved, &approved);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltySnapshotRaised, &raised);
+        env.storage().persistent().set(
+            &DataKey::PenaltySweepUnlock,
+            &env
+                .ledger()
+                .timestamp()
+                .saturating_add(Self::PENALTY_SWEEP_AFTER_SECS),
+        );
+
+        MaliceReportResolvedEvent {
+            approved,
+            approval_weight: approval,
+            rejection_weight: rejection,
+            snapshot_raised: raised,
+        }
+        .publish(&env);
+    }
+
+    /// Pro-rata claim from the penalty pool. Each backer is entitled to
+    /// `(pledge_at_resolution / PenaltySnapshotRaised) * PoolBalance`, minus
+    /// what they have already claimed. Safe against reentrancy (state is
+    /// mutated before the cross-contract token transfer).
+    pub fn claim_penalty_refund(env: Env, backer: Address) {
+        backer.require_auth();
+        let approved: bool = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyApproved)
+            .unwrap_or(false);
+        if !approved {
+            panic_with_error!(&env, CrowdfundError::PenaltyNotApproved);
+        }
+        let pledge: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Pledge(backer.clone()))
+            .unwrap_or(0);
+        if pledge <= 0 {
+            panic_with_error!(&env, CrowdfundError::NotBacker);
+        }
+        let pool: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyPool)
+            .unwrap_or(0);
+        let snapshot: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltySnapshotRaised)
+            .unwrap_or(0);
+        if pool <= 0 || snapshot <= 0 {
+            panic_with_error!(&env, CrowdfundError::NoPenaltyShareAvailable);
+        }
+        let total_share = pledge.saturating_mul(pool) / snapshot;
+        let already: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::BackerPenaltyClaimed(backer.clone()))
+            .unwrap_or(0);
+        let claimable = total_share.saturating_sub(already);
+        if claimable <= 0 {
+            panic_with_error!(&env, CrowdfundError::NoPenaltyShareAvailable);
+        }
+        // Checks-Effects-Interactions: write storage before token transfer.
+        env.storage().persistent().set(
+            &DataKey::BackerPenaltyClaimed(backer.clone()),
+            &already.saturating_add(claimable),
+        );
+        let total_claimed: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyTotalClaimed)
+            .unwrap_or(0);
+        env.storage().persistent().set(
+            &DataKey::PenaltyTotalClaimed,
+            &total_claimed.saturating_add(claimable),
+        );
+        let token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Token)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+        let contract_addr = env.current_contract_address();
+        token::TokenClient::new(&env, &token_addr)
+            .transfer(&contract_addr, &backer, &claimable);
+        let remaining = pool.saturating_sub(claimable);
+        PenaltyRefundClaimedEvent {
+            backer,
+            amount: claimable,
+            remaining_pool: remaining,
+        }
+        .publish(&env);
+    }
+
+    /// Sweep unclaimed penalty balance to `recipient` once the configured
+    /// sweep window has elapsed. Anyone may trigger this — useful for
+    /// protocol governance / treasury consolidation.
+    pub fn sweep_unclaimed_penalty(env: Env, recipient: Address) {
+        let approved: bool = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyApproved)
+            .unwrap_or(false);
+        if !approved {
+            panic_with_error!(&env, CrowdfundError::PenaltyNotApproved);
+        }
+        let unlock: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltySweepUnlock)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::PenaltySweepTooEarly));
+        if env.ledger().timestamp() < unlock {
+            panic_with_error!(&env, CrowdfundError::PenaltySweepTooEarly);
+        }
+        let pool: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyPool)
+            .unwrap_or(0);
+        let total_claimed: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyTotalClaimed)
+            .unwrap_or(0);
+        let sweepable = pool.saturating_sub(total_claimed);
+        if sweepable <= 0 {
+            return;
+        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyPool, &total_claimed);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyRecipient, &recipient);
+        let token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Token)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+        let contract_addr = env.current_contract_address();
+        token::TokenClient::new(&env, &token_addr)
+            .transfer(&contract_addr, &recipient, &sweepable);
+        PenaltySweptEvent {
+            recipient,
+            amount: sweepable,
+        }
+        .publish(&env);
+    }
+
+    // ── Penalty view accessors (#360) ─────────────────────────────────────────
+
+    pub fn get_penalty_bps(env: Env) -> u32 {
+        env.storage().persistent().get(&DataKey::PenaltyBps).unwrap_or(0)
+    }
+
+    pub fn penalty_locked(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltyLocked)
+            .unwrap_or(false)
+    }
+
+    pub fn malice_vote_start(env: Env) -> Option<u64> {
+        env.storage().persistent().get(&DataKey::MaliceVoteStart)
+    }
+
+    pub fn malice_vote_deadline(env: Env) -> Option<u64> {
+        env.storage().persistent().get(&DataKey::MaliceVoteDeadline)
+    }
+
+    pub fn malice_reporter(env: Env) -> Option<Address> {
+        env.storage().persistent().get(&DataKey::MaliceReporter)
+    }
+
+    pub fn malice_reason(env: Env) -> Option<String> {
+        env.storage().persistent().get(&DataKey::MaliceReason)
+    }
+
+    pub fn penalty_vote_counts(env: Env) -> (i128, i128) {
+        (
+            env.storage()
+                .persistent()
+                .get(&DataKey::PenaltyApprovalWeight)
+                .unwrap_or(0),
+            env.storage()
+                .persistent()
+                .get(&DataKey::PenaltyRejectionWeight)
+                .unwrap_or(0),
+        )
+    }
+
+    pub fn is_malice_report_active(env: Env) -> bool {
+        Self::malice_report_active(&env)
+    }
+
+    pub fn is_penalty_approved(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltyApproved)
+            .unwrap_or(false)
+    }
+
+    pub fn penalty_pool_balance(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltyPool)
+            .unwrap_or(0)
+    }
+
+    pub fn penalty_snapshot_raised(env: Env) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::PenaltySnapshotRaised)
+            .unwrap_or(0)
+    }
+
+    pub fn backer_penalty_claimed(env: Env, backer: Address) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&DataKey::BackerPenaltyClaimed(backer))
+            .unwrap_or(0)
+    }
+
+    pub fn penalty_sweep_unlock(env: Env) -> Option<u64> {
+        env.storage().persistent().get(&DataKey::PenaltySweepUnlock)
+    }
+
+    pub fn max_penalty_bps() -> u32 {
+        Self::MAX_PENALTY_BPS
+    }
+
+    pub fn penalty_vote_window() -> u64 {
+        Self::PENALTY_VOTE_WINDOW
+    }
+
+    pub fn penalty_sweep_after() -> u64 {
+        Self::PENALTY_SWEEP_AFTER_SECS
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
@@ -976,6 +1571,52 @@ impl CrowdfundContract {
             .persistent()
             .set(&DataKey::Pledge(contributor), &prev_pledge.saturating_add(effective_amount));
 
+        // Lock the self-imposed penalty rate after the first pledge lands so
+        // backers can rely on the trust signal (#360).
+        if !env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyLocked)
+            .unwrap_or(false)
+        {
+            env.storage()
+                .persistent()
+                .set(&DataKey::PenaltyLocked, &true);
+        }
+
         new_raised
+    }
+
+    /// Compute the penalty slice for `amount`, credit the pool, and return
+    /// `(payout_to_organizer, slashed_to_pool)`. Identity when no penalty is
+    /// configured/approved (#360).
+    fn compute_and_lock_penalty(env: &Env, amount: i128) -> (i128, i128) {
+        let approved: bool = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyApproved)
+            .unwrap_or(false);
+        if !approved {
+            return (amount, 0);
+        }
+        let bps: u32 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyBps)
+            .unwrap_or(0);
+        if bps == 0 || amount <= 0 {
+            return (amount, 0);
+        }
+        let slashed = amount.saturating_mul(bps as i128) / 10_000;
+        let payout = amount.saturating_sub(slashed);
+        let pool: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::PenaltyPool)
+            .unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PenaltyPool, &pool.saturating_add(slashed));
+        (payout, slashed)
     }
 }
