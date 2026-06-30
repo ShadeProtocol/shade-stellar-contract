@@ -52,4 +52,14 @@ pub enum CrowdfundError {
     InsufficientMatchingPool = 26,
     // Pledge comment exceeds the configured maximum length.
     CommentTooLong = 27,
+    // Affiliate code is invalid (empty or too long).
+    InvalidAffiliateCode = 28,
+    // No affiliate record found for the given code.
+    AffiliateNotFound = 29,
+    // An affiliate with this code has already been registered.
+    AffiliateAlreadyExists = 30,
+    // Commission basis points must be > 0 and <= 10_000 (100 %).
+    InvalidCommissionBps = 31,
+    // Only the organizer may manage affiliates.
+    UnauthorizedAffiliate = 32,
 }
