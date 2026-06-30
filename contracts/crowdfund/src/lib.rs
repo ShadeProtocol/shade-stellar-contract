@@ -92,9 +92,66 @@ pub struct PledgeCommentAddedEvent {
     pub comment: String,
 }
 
+#[contractevent]
 pub struct PledgeReceivedEvent {
     pub contributor: Address,
     pub amount: i128,
+}
+
+// ── Affiliate / referral tracking ─────────────────────────────────────────────
+
+/// Immutable affiliate registration record.
+#[contracttype]
+#[derive(Clone)]
+pub struct AffiliateInfo {
+    /// The wallet address that will receive commission payouts.
+    pub wallet: Address,
+    /// Commission rate in basis points (1 bp = 0.01 %; max 10 000 = 100 %).
+    pub commission_bps: u32,
+    /// Total tokens contributed by backers who used this affiliate's code.
+    pub total_referred_amount: i128,
+    /// Total commission accrued (in token base units) — not yet paid out.
+    pub total_commission_earned: i128,
+    /// Number of unique contributors referred.
+    pub referral_count: u32,
+}
+
+/// Per-contributor referral record written at contribution time.
+#[contracttype]
+#[derive(Clone)]
+pub struct ReferralRecord {
+    pub affiliate_code: String,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+// ── Affiliate events ──────────────────────────────────────────────────────────
+
+/// Emitted when the organizer registers a new affiliate.
+#[contractevent]
+pub struct AffiliateRegisteredEvent {
+    pub affiliate_code: String,
+    pub wallet: Address,
+    pub commission_bps: u32,
+    pub timestamp: u64,
+}
+
+/// Emitted when a contribution is made through an affiliate link.
+#[contractevent]
+pub struct AffiliateContributionEvent {
+    pub affiliate_code: String,
+    pub contributor: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+/// Emitted when a commission is accrued for an affiliate.
+#[contractevent]
+pub struct AffiliateCommissionEvent {
+    pub affiliate_code: String,
+    pub wallet: Address,
+    pub commission: i128,
+    pub timestamp: u64,
 }
 
 #[contractevent]
@@ -149,6 +206,15 @@ enum DataKey {
     MatchingPool,
     // Public comment attached to a contributor pledge.
     PledgeComment(Address),
+    // ── Affiliate / referral tracking ────────────────────────────────────────
+    // Affiliate info keyed by the affiliate's string code.
+    Affiliate(String),
+    // List of all registered affiliate codes (for enumeration).
+    AffiliateList,
+    // Per-contributor referral record (code used when they contributed).
+    ContributorReferral(Address),
+    // Accrued commission per affiliate code (token base units, pending payout).
+    AffiliateCommission(String),
 }
 
 #[contract]
@@ -357,6 +423,233 @@ impl CrowdfundContract {
         env.storage().persistent().get(&DataKey::MatchingPool).unwrap_or(0)
     }
 
+    // ── Affiliate / Referral Tracking (#349) ─────────────────────────────────
+
+    /// Register a new affiliate. Only callable by the organizer.
+    ///
+    /// # Arguments
+    /// * `affiliate_code`  – unique human-readable identifier (1–32 bytes).
+    /// * `wallet`          – address that will earn commission.
+    /// * `commission_bps`  – commission rate in basis points (1–10_000).
+    pub fn register_affiliate(
+        env: Env,
+        affiliate_code: String,
+        wallet: Address,
+        commission_bps: u32,
+    ) {
+        let organizer: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Organizer)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+        organizer.require_auth();
+
+        // Validate code length: 1–32 bytes, non-empty.
+        if affiliate_code.len() == 0 || affiliate_code.len() > 32 {
+            panic_with_error!(&env, CrowdfundError::InvalidAffiliateCode);
+        }
+
+        // Validate commission bps.
+        if commission_bps == 0 || commission_bps > 10_000 {
+            panic_with_error!(&env, CrowdfundError::InvalidCommissionBps);
+        }
+
+        // Prevent duplicate registration.
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::Affiliate(affiliate_code.clone()))
+        {
+            panic_with_error!(&env, CrowdfundError::AffiliateAlreadyExists);
+        }
+
+        let info = AffiliateInfo {
+            wallet: wallet.clone(),
+            commission_bps,
+            total_referred_amount: 0,
+            total_commission_earned: 0,
+            referral_count: 0,
+        };
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Affiliate(affiliate_code.clone()), &info);
+
+        // Append code to the global list for enumeration.
+        let mut list: Vec<String> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AffiliateList)
+            .unwrap_or_else(|| Vec::new(&env));
+        list.push_back(affiliate_code.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::AffiliateList, &list);
+
+        AffiliateRegisteredEvent {
+            affiliate_code,
+            wallet,
+            commission_bps,
+            timestamp: env.ledger().timestamp(),
+        }
+        .publish(&env);
+    }
+
+    /// Contribute to the campaign through an affiliate referral link.
+    /// Records the referral and accrues commission to the affiliate.
+    ///
+    /// # Arguments
+    /// * `contributor`     – address making the contribution.
+    /// * `amount`          – token base-units to contribute (must be > 0).
+    /// * `affiliate_code`  – the referral code provided by the affiliate.
+    pub fn contribute_with_referral(
+        env: Env,
+        contributor: Address,
+        amount: i128,
+        affiliate_code: String,
+    ) {
+        contributor.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, CrowdfundError::InvalidAmount);
+        }
+
+        let deadline: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Deadline)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+
+        if env.ledger().timestamp() > deadline {
+            panic_with_error!(&env, CrowdfundError::CampaignEnded);
+        }
+
+        // Verify the affiliate code exists.
+        let mut info: AffiliateInfo = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Affiliate(affiliate_code.clone()))
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::AffiliateNotFound));
+
+        let token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Token)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
+
+        let contract_addr = env.current_contract_address();
+        token::TokenClient::new(&env, &token_addr)
+            .transfer(&contributor, &contract_addr, &amount);
+
+        // Apply matching (same as `contribute`).
+        let new_raised = Self::apply_pledge_with_matching(&env, contributor.clone(), amount);
+
+        // Track contributor for batch refunds.
+        Self::track_contributor(&env, contributor.clone());
+
+        // Check and emit stretch goal events.
+        Self::check_stretch_goals(&env, new_raised);
+
+        // Determine whether this contributor is new for this affiliate.
+        let is_new_referral = !env
+            .storage()
+            .persistent()
+            .has(&DataKey::ContributorReferral(contributor.clone()));
+
+        // Persist the referral record for this contributor (first-touch wins).
+        if is_new_referral {
+            let record = ReferralRecord {
+                affiliate_code: affiliate_code.clone(),
+                amount,
+                timestamp: env.ledger().timestamp(),
+            };
+            env.storage()
+                .persistent()
+                .set(&DataKey::ContributorReferral(contributor.clone()), &record);
+            info.referral_count = info.referral_count.saturating_add(1);
+        }
+
+        // Accrue commission (calculated on the raw contributed amount, before matching).
+        let commission = amount * info.commission_bps as i128 / 10_000;
+        info.total_referred_amount = info.total_referred_amount.saturating_add(amount);
+        info.total_commission_earned = info.total_commission_earned.saturating_add(commission);
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Affiliate(affiliate_code.clone()), &info);
+
+        // Accumulate global accrued commission for the code.
+        let prev_commission: i128 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AffiliateCommission(affiliate_code.clone()))
+            .unwrap_or(0);
+        env.storage()
+            .persistent()
+            .set(
+                &DataKey::AffiliateCommission(affiliate_code.clone()),
+                &prev_commission.saturating_add(commission),
+            );
+
+        let ts = env.ledger().timestamp();
+
+        AffiliateContributionEvent {
+            affiliate_code: affiliate_code.clone(),
+            contributor,
+            amount,
+            timestamp: ts,
+        }
+        .publish(&env);
+
+        if commission > 0 {
+            AffiliateCommissionEvent {
+                affiliate_code,
+                wallet: info.wallet,
+                commission,
+                timestamp: ts,
+            }
+            .publish(&env);
+        }
+    }
+
+    /// Return the `AffiliateInfo` record for a given code.
+    pub fn get_affiliate(env: Env, affiliate_code: String) -> AffiliateInfo {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Affiliate(affiliate_code))
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::AffiliateNotFound))
+    }
+
+    /// Return the total accrued commission for a given affiliate code.
+    pub fn get_affiliate_commission(env: Env, affiliate_code: String) -> i128 {
+        // Ensure the code exists.
+        if !env
+            .storage()
+            .persistent()
+            .has(&DataKey::Affiliate(affiliate_code.clone()))
+        {
+            panic_with_error!(&env, CrowdfundError::AffiliateNotFound);
+        }
+        env.storage()
+            .persistent()
+            .get(&DataKey::AffiliateCommission(affiliate_code))
+            .unwrap_or(0)
+    }
+
+    /// Return the list of all registered affiliate codes.
+    pub fn get_affiliate_codes(env: Env) -> Vec<String> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::AffiliateList)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Return the referral record for a contributor, if they used a referral code.
+    pub fn get_contributor_referral(env: Env, contributor: Address) -> Option<ReferralRecord> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ContributorReferral(contributor))
+    }
     /// Withdraw funds to the organizer after deadline if goal was met (#303).
     pub fn execute_campaign(env: Env) {
         let organizer: Address = env
