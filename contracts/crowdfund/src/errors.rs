@@ -52,30 +52,4 @@ pub enum CrowdfundError {
     InsufficientMatchingPool = 26,
     // Pledge comment exceeds the configured maximum length.
     CommentTooLong = 27,
-    // Penalty basis points exceed the configured maximum (50%).
-    PenaltyBpsInvalid = 28,
-    // Penalty configuration is locked after the first contribution.
-    PenaltyLocked = 29,
-    // A malicious campaign report is already active.
-    MaliceReportActive = 30,
-    // No active malicious campaign report exists.
-    NoMaliceReport = 31,
-    // Penalty voting is still inside the active window.
-    MaliceVoteWindowActive = 32,
-    // Penalty voting window has expired; resolution time.
-    MaliceVoteWindowExpired = 33,
-    // Penalty voting is closed but the proposal was not approved.
-    PenaltyNotApproved = 34,
-    // The penalty pool does not hold enough to cover the requested payout.
-    InsufficientPenaltyPool = 35,
-    // Caller is not the organizer (used to gate organizer-only flows).
-    NotOrganizer = 36,
-    // Reporter does not hold enough pledge to file a malice report.
-    InsufficientReporterStake = 37,
-    // Penalty sweep is attempted before the unclaimed window has elapsed.
-    PenaltySweepTooEarly = 38,
-    // Attempting to claim zero or negative penalty share.
-    NoPenaltyShareAvailable = 39,
-    // A backer can only vote once on the active malice penalty proposal.
-    PenaltyVoteAlreadyCast = 40,
 }
