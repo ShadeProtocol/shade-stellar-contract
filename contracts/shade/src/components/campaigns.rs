@@ -363,6 +363,9 @@ pub fn create_campaign(
         status: CampaignStatus::Active,
         total_slashed: 0,
         penalty_count: 0,
+        fee_waiver_bps: 0,
+        discount_bps: 0,
+        stake_required: 0,
     };
 
     env.storage()

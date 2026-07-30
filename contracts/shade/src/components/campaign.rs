@@ -67,14 +67,14 @@ fn store_participant(env: &Env, campaign_id: u64, participant: &CampaignParticip
 // ── Campaign management (stakeable campaigns with financial penalties) ────────
 
 /// Create a campaign with staking requirements. Only registered merchants may call.
+/// Matches the ShadeTrait signature: (env, caller, name, charity, fee_waiver_bps, discount_bps, stake_required) -> u64
 pub fn create_campaign(
     env: &Env,
     caller: &Address,
     name: &String,
-    description: &String,
-    goal_amount: i128,
-    token: &Address,
-    deadline: u64,
+    _charity: bool,
+    fee_waiver_bps: u32,
+    discount_bps: u32,
     stake_required: i128,
 ) -> u64 {
     reentrancy::enter(env);
@@ -91,37 +91,37 @@ pub fn create_campaign(
     if name.len() == 0 || name.len() > MAX_NAME_LEN {
         panic_with_error!(env, ContractError::InvalidDescription);
     }
-    if description.len() > MAX_DESCRIPTION_LEN {
-        panic_with_error!(env, ContractError::InvalidDescription);
-    }
-    if goal_amount <= 0 {
-        panic_with_error!(env, ContractError::InvalidCampaignGoal);
-    }
-    if deadline <= env.ledger().timestamp() {
-        panic_with_error!(env, ContractError::InvalidCampaignDeadline);
+    if fee_waiver_bps > 10_000 || discount_bps > 10_000 {
+        panic_with_error!(env, ContractError::InvalidAmount);
     }
     if stake_required < 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
 
     let campaign_id = get_campaign_count(env) + 1;
+    let desc = String::from_str(env, "");
     let campaign = Campaign {
         id: campaign_id,
         merchant_id,
         merchant: caller.clone(),
         title: name.clone(),
-        description: description.clone(),
+        description: desc,
         category_id: 0,
         tags: Vec::new(env),
-        goal_amount,
-        token: token.clone(),
-        deadline,
+        goal_amount: 0,
+        // Placeholder token; campaigns created via this minimal factory should
+        // have their token set before accepting contributions.
+        token: caller.clone(),
+        deadline: u64::MAX,
         raised_amount: 0,
         active: true,
         created_at: env.ledger().timestamp(),
         status: CampaignStatus::Active,
         total_slashed: 0,
         penalty_count: 0,
+        fee_waiver_bps,
+        discount_bps,
+        stake_required,
     };
 
     env.storage()
@@ -140,17 +140,59 @@ pub fn create_campaign(
         caller.clone(),
         merchant_id,
         name.clone(),
-        description.clone(),
+        String::from_str(env, ""),
         0,
         Vec::new(env),
-        goal_amount,
-        token.clone(),
-        deadline,
+        0,
+        caller.clone(),
+        u64::MAX,
         env.ledger().timestamp(),
     );
 
     reentrancy::exit(env);
     campaign_id
+}
+
+/// Configure fee policy for an existing campaign. Only owner or admin.
+pub fn configure_campaign_fee_policy(
+    env: &Env,
+    caller: &Address,
+    campaign_id: u64,
+    fee_waiver_bps: u32,
+    discount_bps: u32,
+) {
+    reentrancy::enter(env);
+    caller.require_auth();
+
+    if fee_waiver_bps > 10_000 || discount_bps > 10_000 {
+        panic_with_error!(env, ContractError::InvalidAmount);
+    }
+
+    let mut campaign = get_campaign(env, campaign_id);
+    let admin = core::get_admin(env);
+    if *caller != campaign.merchant && *caller != admin {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    campaign.fee_waiver_bps = fee_waiver_bps;
+    campaign.discount_bps = discount_bps;
+    env.storage()
+        .persistent()
+        .set(&DataKey::StakeableCampaign(campaign_id), &campaign);
+
+    reentrancy::exit(env);
+}
+
+/// Calculate the discounted amount for a campaign contribution.
+pub fn calculate_campaign_discounted_amount(env: &Env, campaign_id: u64, amount: i128) -> i128 {
+    if amount <= 0 {
+        return 0;
+    }
+
+    let campaign = get_campaign(env, campaign_id);
+    let waiver = (amount * i128::from(campaign.fee_waiver_bps)) / 10_000i128;
+    let discount = (amount * i128::from(campaign.discount_bps)) / 10_000i128;
+    amount - waiver - discount
 }
 
 /// Stake tokens on a campaign. Increases participant score.

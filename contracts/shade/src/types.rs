@@ -543,6 +543,12 @@ pub struct Campaign {
     pub total_slashed: i128,
     /// Number of penalty reports upheld against this campaign.
     pub penalty_count: u32,
+    /// Fee waiver in basis points (0-10,000).
+    pub fee_waiver_bps: u32,
+    /// Discount in basis points for campaign participants (0-10,000).
+    pub discount_bps: u32,
+    /// Minimum stake required to participate.
+    pub stake_required: i128,
 }
 
 /// A timestamped update / news post published by the merchant on an active campaign.
