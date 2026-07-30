@@ -1886,3 +1886,170 @@ pub fn publish_escrow_expired_refund_event(
     }
     .publish(env);
 }
+
+// ── Campaign financial penalties & slashing events (#360) ─────────────────────
+
+#[contractevent]
+pub struct CampaignStakedEvent {
+    pub campaign_id: u64,
+    pub participant: Address,
+    pub amount: i128,
+    pub total_staked: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_staked_event(
+    env: &Env,
+    campaign_id: u64,
+    participant: Address,
+    amount: i128,
+    total_staked: i128,
+    timestamp: u64,
+) {
+    CampaignStakedEvent {
+        campaign_id,
+        participant,
+        amount,
+        total_staked,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct CampaignSlashedEvent {
+    pub campaign_id: u64,
+    pub participant: Address,
+    pub amount: i128,
+    pub remaining_stake: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_slashed_event(
+    env: &Env,
+    campaign_id: u64,
+    participant: Address,
+    amount: i128,
+    remaining_stake: i128,
+    timestamp: u64,
+) {
+    CampaignSlashedEvent {
+        campaign_id,
+        participant,
+        amount,
+        remaining_stake,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct AffiliateRegisteredEvent {
+    pub campaign_id: u64,
+    pub affiliate: Address,
+    pub commission_bps: u32,
+    pub timestamp: u64,
+}
+
+pub fn publish_affiliate_registered_event(
+    env: &Env,
+    campaign_id: u64,
+    affiliate: Address,
+    commission_bps: u32,
+    timestamp: u64,
+) {
+    AffiliateRegisteredEvent {
+        campaign_id,
+        affiliate,
+        commission_bps,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct AffiliateCommissionPaidEvent {
+    pub campaign_id: u64,
+    pub affiliate: Address,
+    pub amount: i128,
+    pub total_paid: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_affiliate_commission_paid_event(
+    env: &Env,
+    campaign_id: u64,
+    affiliate: Address,
+    amount: i128,
+    total_paid: i128,
+    timestamp: u64,
+) {
+    AffiliateCommissionPaidEvent {
+        campaign_id,
+        affiliate,
+        amount,
+        total_paid,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct CampaignPenaltyReportedEvent {
+    pub report_id: u64,
+    pub campaign_id: u64,
+    pub reporter: Address,
+    pub reason: String,
+    pub suggested_penalty: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_penalty_reported_event(
+    env: &Env,
+    report_id: u64,
+    campaign_id: u64,
+    reporter: Address,
+    reason: String,
+    suggested_penalty: i128,
+    timestamp: u64,
+) {
+    CampaignPenaltyReportedEvent {
+        report_id,
+        campaign_id,
+        reporter,
+        reason,
+        suggested_penalty,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
+pub struct CampaignPenaltyResolvedEvent {
+    pub report_id: u64,
+    pub campaign_id: u64,
+    pub resolved_by: Address,
+    pub upheld: bool,
+    pub applied_penalty: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_penalty_resolved_event(
+    env: &Env,
+    report_id: u64,
+    campaign_id: u64,
+    resolved_by: Address,
+    upheld: bool,
+    applied_penalty: i128,
+    timestamp: u64,
+) {
+    CampaignPenaltyResolvedEvent {
+        report_id,
+        campaign_id,
+        resolved_by,
+        upheld,
+        applied_penalty,
+        timestamp,
+    }
+    .publish(env);
+}

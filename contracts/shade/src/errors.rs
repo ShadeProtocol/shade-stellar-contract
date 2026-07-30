@@ -52,109 +52,90 @@ pub enum ContractError {
     TicketNotFound = 51,
     NotTicketOwner = 52,
     InvalidResalePrice = 54,
-    CampaignNotFound = 55,
-    // ── Campaign categories & tagging (#352) ──────────────────────────────
-    /// Referenced campaign category does not exist.
-    CampaignCategoryNotFound = 55,
-    /// A category with the supplied name has already been registered.
-    CampaignCategoryAlreadyExists = 56,
-    /// Referenced campaign category exists but is not active.
-    CampaignCategoryInactive = 57,
-    /// Referenced campaign tag does not exist.
-    CampaignTagNotFound = 58,
-    /// A tag with the supplied name has already been registered.
-    CampaignTagAlreadyExists = 59,
-    /// Referenced campaign does not exist.
-    CampaignNotFound = 60,
-    /// Campaign goal_amount must be positive.
-    InvalidCampaignGoal = 61,
-    /// Campaign deadline must be in the future.
-    InvalidCampaignDeadline = 62,
-    /// Operation referred to a campaign that has been deactivated.
-    CampaignInactive = 63,
-    /// The caller is not the merchant that owns the campaign.
-    NotCampaignMerchant = 64,
-    /// The campaign's deadline has passed and it can no longer accept contributions.
-    CampaignExpired = 65,
     NotFound = 55,
-    // ── Multi-sig massive withdrawal ─────────────────────────────────────────
-    /// The withdrawal amount is below the configured threshold; no multi-sig needed.
-    BelowMultiSigThreshold = 55,
-    /// No signers have been registered for multi-sig.
-    MultiSigSignersNotSet = 56,
-    /// The quorum value must be > 0 and ≤ the number of registered signers.
-    InvalidQuorum = 57,
-    /// The caller is not in the registered signer list.
-    NotASigner = 58,
-    /// This signer has already approved the given proposal.
-    AlreadyApproved = 59,
-    /// The referenced withdrawal proposal does not exist.
-    ProposalNotFound = 60,
-    /// The proposal is not in the Pending state and cannot be acted on.
-    ProposalNotPending = 61,
-    /// The proposal has not yet collected enough approvals for execution.
-    QuorumNotReached = 62,
-    /// Only the original proposer (merchant) may cancel their own proposal.
-    NotProposer = 63,
-    /// The multi-sig threshold has not been configured for this token.
-    ThresholdNotSet = 64,
-    EscrowNotFound = 55,
-    InvalidEscrowStatus = 56,
-    CampaignNotFound = 55,
-    AffiliateNotFound = 56,
-    NftError = 55,
-    CampaignNotFound = 55,
-    InvalidRewardTier = 56,
-    PledgeBelowTierMinimum = 57,
-    RewardTierAtCapacity = 58,
-    BackerRewardAlreadyFulfilled = 59,
-    NotBacker = 60,
-    CampaignEnded = 61,
-    InvalidCampaignDeadline = 62,
-    PerkNotFound = 63,
-    PerkAlreadyClaimed = 64,
-    BackerRewardNotFulfilled = 65,
-    InvalidTierOrdering = 66,
-    CampaignNotActive = 67,
-  BridgeDepositProcessed = 68,
+
+    // ── Campaign categories & tagging (#352) ──────────────────────────────
+    CampaignCategoryNotFound = 66,
+    CampaignCategoryAlreadyExists = 67,
+    CampaignCategoryInactive = 68,
+    CampaignTagNotFound = 69,
+    CampaignTagAlreadyExists = 70,
+
+    // ── Campaign system ───────────────────────────────────────────────────
+    CampaignNotFound = 71,
+    InvalidCampaignGoal = 72,
+    InvalidCampaignDeadline = 73,
+    CampaignInactive = 74,
+    NotCampaignMerchant = 75,
+    CampaignExpired = 76,
+    AffiliateNotFound = 77,
+    CampaignEnded = 78,
+    CampaignNotActive = 79,
+
+    // ── Financial penalties for malicious campaigns (#360) ────────────────
+    /// Campaign is not in a state that allows penalty reports.
+    CampaignNotPenalizable = 80,
+    /// The penalty report referenced does not exist.
+    PenaltyReportNotFound = 81,
+    /// The penalty report has already been resolved.
+    PenaltyReportAlreadyResolved = 82,
+    /// The caller is not authorized to resolve penalty reports (admin only).
+    NotPenaltyResolver = 83,
+    /// The suggested penalty amount exceeds the campaign's slasable funds.
+    PenaltyExceedsSlasableFunds = 84,
+
+    // ── Multi-sig massive withdrawal ─────────────────────────────────────
+    BelowMultiSigThreshold = 85,
+    MultiSigSignersNotSet = 86,
+    InvalidQuorum = 87,
+    NotASigner = 88,
+    AlreadyApproved = 89,
+    ProposalNotFound = 90,
+    ProposalNotPending = 91,
+    QuorumNotReached = 92,
+    NotProposer = 93,
+    ThresholdNotSet = 94,
+
+    // ── Escrow ───────────────────────────────────────────────────────────
+    EscrowNotFound = 95,
+    InvalidEscrowStatus = 96,
+
+    // ── Backer rewards ───────────────────────────────────────────────────
+    InvalidRewardTier = 97,
+    PledgeBelowTierMinimum = 98,
+    RewardTierAtCapacity = 99,
+    BackerRewardAlreadyFulfilled = 100,
+    NotBacker = 101,
+    PerkNotFound = 102,
+    PerkAlreadyClaimed = 103,
+    BackerRewardNotFulfilled = 104,
+    InvalidTierOrdering = 105,
+
+    // ── Bridge ───────────────────────────────────────────────────────────
+    BridgeDepositProcessed = 106,
+    NftError = 107,
 }
 
-/// DAO governance errors. Kept in a separate enum (codes offset to 100+) so the
-/// `ContractError` enum can stay within Soroban's hard cap of 50 cases while
-/// governance still has its own distinct, unambiguous error codes.
+/// DAO governance errors. Kept in a separate enum.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum GovernanceError {
-    /// Caller is not a registered governance council member.
-    NotGovMember = 100,
-    /// Governance voting parameters have not been configured.
-    GovNotConfigured = 101,
-    /// Supplied governance config is invalid (zero period or quorum > 100%).
-    InvalidGovConfig = 102,
-    /// No proposal exists for the supplied id.
-    ProposalNotFound = 103,
-    /// The proposal is no longer open (already executed or defeated).
-    ProposalNotActive = 104,
-    /// The voting window for this proposal has closed.
-    VotingClosed = 105,
-    /// The voting window is still open; the proposal cannot be finalized yet.
-    VotingStillOpen = 106,
-    /// This member has already voted on the proposal.
-    AlreadyVoted = 107,
+    NotGovMember = 200,
+    GovNotConfigured = 201,
+    InvalidGovConfig = 202,
+    ProposalNotFound = 203,
+    ProposalNotActive = 204,
+    VotingClosed = 205,
+    VotingStillOpen = 206,
+    AlreadyVoted = 207,
 }
 
-/// Escrow / expired-refund errors. Kept in a separate enum so `ContractError`
-/// can stay within Soroban's hard cap of 50 cases. The numeric codes (44/45)
-/// are scoped to this enum and are only ever returned from the escrow-refund
-/// path, so there is no on-chain ambiguity with `ContractError`'s own 44/45.
+/// Escrow / expired-refund errors.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum EscrowError {
-    /// The escrow invoice has not yet reached its expiration timestamp.
-    EscrowNotExpired = 44,
-    /// The escrow invoice has already been fully refunded.
-    EscrowAlreadyRefunded = 45,
-    
+    EscrowNotExpired = 300,
+    EscrowAlreadyRefunded = 301,
 }
