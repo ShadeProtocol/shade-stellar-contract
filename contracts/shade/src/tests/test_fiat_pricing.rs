@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{InvoicePricingMode, OracleConfig};
-use soroban_sdk::testutils::{Address as _, Ledger as _};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{contract, contractimpl, Address, Env, String};
 
 #[contract]

@@ -2,7 +2,12 @@
 target/
 **/*.rs.bk
 *.pdb
-Cargo.lock
+
+# NOTE: Cargo.lock is intentionally committed. These are deployable contracts,
+# not a library published to crates.io, so builds must be reproducible.
+# It is also load-bearing: soroban-env-host 23.0.1 declares
+# `ed25519-dalek = ">=2.0.0"` but only compiles against 2.x, so an unpinned
+# resolve picks 3.0.0 and fails to build.
 
 # IDE
 .idea/

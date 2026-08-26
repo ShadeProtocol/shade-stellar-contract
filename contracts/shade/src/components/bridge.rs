@@ -17,20 +17,20 @@
 use crate::components::{admin, core};
 use crate::errors::ContractError;
 use crate::events;
-use crate::types::{BridgeDeposit, DataKey};
+use crate::types::{BridgeDeposit, BridgeKey};
 use soroban_sdk::{panic_with_error, Address, BytesN, Env, String};
 
 fn get_listener_count(env: &Env) -> u64 {
     env.storage()
         .persistent()
-        .get(&DataKey::BridgeListenerCount)
+        .get(&BridgeKey::BridgeListenerCount)
         .unwrap_or(0)
 }
 
 fn get_deposit_count(env: &Env) -> u64 {
     env.storage()
         .persistent()
-        .get(&DataKey::BridgeDepositCount)
+        .get(&BridgeKey::BridgeDepositCount)
         .unwrap_or(0)
 }
 
@@ -45,9 +45,9 @@ pub fn register_bridge_listener(env: &Env, admin: &Address, listener: &Address) 
 
     env.storage()
         .persistent()
-        .set(&DataKey::BridgeListener(listener.clone()), &true);
+        .set(&BridgeKey::BridgeListener(listener.clone()), &true);
     env.storage().persistent().set(
-        &DataKey::BridgeListenerCount,
+        &BridgeKey::BridgeListenerCount,
         &(get_listener_count(env) + 1),
     );
 
@@ -70,9 +70,9 @@ pub fn remove_bridge_listener(env: &Env, admin: &Address, listener: &Address) {
 
     env.storage()
         .persistent()
-        .remove(&DataKey::BridgeListener(listener.clone()));
+        .remove(&BridgeKey::BridgeListener(listener.clone()));
     env.storage().persistent().set(
-        &DataKey::BridgeListenerCount,
+        &BridgeKey::BridgeListenerCount,
         &get_listener_count(env).saturating_sub(1),
     );
 
@@ -87,7 +87,7 @@ pub fn remove_bridge_listener(env: &Env, admin: &Address, listener: &Address) {
 pub fn is_bridge_listener(env: &Env, listener: &Address) -> bool {
     env.storage()
         .persistent()
-        .has(&DataKey::BridgeListener(listener.clone()))
+        .has(&BridgeKey::BridgeListener(listener.clone()))
 }
 
 /// Record a confirmed external-chain deposit.
@@ -122,14 +122,14 @@ pub fn record_bridge_deposit(
 
     // Mark processed first so any re-entrant or concurrent retry is rejected.
     env.storage().persistent().set(
-        &DataKey::ProcessedBridgeDeposit(source_tx_id.clone()),
+        &BridgeKey::ProcessedBridgeDeposit(source_tx_id.clone()),
         &true,
     );
 
     let deposit_id = get_deposit_count(env) + 1;
     env.storage()
         .persistent()
-        .set(&DataKey::BridgeDepositCount, &deposit_id);
+        .set(&BridgeKey::BridgeDepositCount, &deposit_id);
 
     let now = env.ledger().timestamp();
     let deposit = BridgeDeposit {
@@ -144,10 +144,10 @@ pub fn record_bridge_deposit(
     };
     env.storage()
         .persistent()
-        .set(&DataKey::BridgeDeposit(deposit_id), &deposit);
+        .set(&BridgeKey::BridgeDeposit(deposit_id), &deposit);
 
     // Maintain a running per-recipient, per-token credited total for queries.
-    let credit_key = DataKey::BridgeCredit(recipient.clone(), token.clone());
+    let credit_key = BridgeKey::BridgeCredit(recipient.clone(), token.clone());
     let credited: i128 = env.storage().persistent().get(&credit_key).unwrap_or(0);
     env.storage()
         .persistent()
@@ -172,13 +172,13 @@ pub fn record_bridge_deposit(
 pub fn get_bridge_deposit(env: &Env, deposit_id: u64) -> Option<BridgeDeposit> {
     env.storage()
         .persistent()
-        .get(&DataKey::BridgeDeposit(deposit_id))
+        .get(&BridgeKey::BridgeDeposit(deposit_id))
 }
 
 pub fn is_bridge_deposit_processed(env: &Env, source_tx_id: &BytesN<32>) -> bool {
     env.storage()
         .persistent()
-        .has(&DataKey::ProcessedBridgeDeposit(source_tx_id.clone()))
+        .has(&BridgeKey::ProcessedBridgeDeposit(source_tx_id.clone()))
 }
 
 pub fn get_bridge_deposit_count(env: &Env) -> u64 {
@@ -188,6 +188,6 @@ pub fn get_bridge_deposit_count(env: &Env) -> u64 {
 pub fn get_bridge_credit(env: &Env, recipient: &Address, token: &Address) -> i128 {
     env.storage()
         .persistent()
-        .get(&DataKey::BridgeCredit(recipient.clone(), token.clone()))
+        .get(&BridgeKey::BridgeCredit(recipient.clone(), token.clone()))
         .unwrap_or(0)
 }

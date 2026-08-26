@@ -6,7 +6,7 @@ use crate::shade::ShadeClient;
 use soroban_sdk::testutils::{Address as _, Ledger};
 use soroban_sdk::{Address, Env};
 
-fn setup(env: &Env) -> (Address, ShadeClient, Address) {
+fn setup(env: &Env) -> (Address, ShadeClient<'_>, Address) {
     env.mock_all_auths();
     let contract_id = env.register(Shade, ());
     let client = ShadeClient::new(env, &contract_id);

@@ -63,11 +63,29 @@ pub enum CrowdfundError {
     // This contributor has already used a referral code for this campaign.
     ReferralAlreadyUsed = 32,
     // Caller is not authorized for this privileged view (organizer only).
-    NotAuthorized = 28,
+    NotAuthorized = 33,
     // The backer already holds this badge.
-    BadgeAlreadyAwarded = 29,
+    BadgeAlreadyAwarded = 34,
     // The backer does not meet this badge's on-chain eligibility rules.
-    BadgeNotEligible = 30,
+    BadgeNotEligible = 35,
     // Badge eligibility thresholds have not been configured by the organizer.
-    BadgeConfigNotSet = 31,
+    BadgeConfigNotSet = 36,
+    // ── Social recovery / guardians ─────────────────────────────────────────
+    // No guardian set has been configured for this campaign.
+    GuardiansNotSet = 37,
+    // The same address appears twice in the supplied guardian list.
+    DuplicateGuardian = 38,
+    // Threshold must be non-zero and no greater than the number of guardians.
+    InvalidThreshold = 39,
+    // A recovery is already pending; cancel it before starting another.
+    RecoveryAlreadyPending = 40,
+    // No recovery is currently pending.
+    NoPendingRecovery = 41,
+    // The caller is not in the registered guardian set.
+    NotGuardian = 42,
+    // This guardian has already approved the pending recovery.
+    AlreadyApprovedRecovery = 43,
+    // ── KYC gating ──────────────────────────────────────────────────────────
+    // The campaign requires KYC and the contributor is not verified.
+    KYCRequired = 44,
 }

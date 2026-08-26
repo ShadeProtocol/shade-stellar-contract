@@ -95,7 +95,7 @@ fn create_campaign_category_rejects_non_admin() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #56)")] // CampaignCategoryAlreadyExists
+#[should_panic(expected = "Error(Contract, #202)")] // CampaignCategoryAlreadyExists
 fn create_campaign_category_rejects_duplicate_name() {
     let f = setup();
     f.client.create_campaign_category(
@@ -143,7 +143,7 @@ fn update_campaign_category_changes_fields() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #55)")] // CampaignCategoryNotFound
+#[should_panic(expected = "Error(Contract, #201)")] // CampaignCategoryNotFound
 fn get_campaign_category_rejects_missing() {
     let f = setup();
     f.client.get_campaign_category(&999);
@@ -182,7 +182,7 @@ fn create_campaign_tag_rejects_unregistered_user() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #59)")] // CampaignTagAlreadyExists
+#[should_panic(expected = "Error(Contract, #205)")] // CampaignTagAlreadyExists
 fn create_campaign_tag_rejects_duplicate_name() {
     let f = setup();
     f.client
@@ -263,7 +263,7 @@ fn create_campaign_rejects_non_merchant() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #61)")] // InvalidCampaignGoal
+#[should_panic(expected = "Error(Contract, #206)")] // InvalidCampaignGoal
 fn create_campaign_rejects_zero_goal() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -284,7 +284,7 @@ fn create_campaign_rejects_zero_goal() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #62)")] // InvalidCampaignDeadline
+#[should_panic(expected = "Error(Contract, #207)")] // InvalidCampaignDeadline
 fn create_campaign_rejects_past_deadline() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -305,7 +305,7 @@ fn create_campaign_rejects_past_deadline() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #57)")] // CampaignCategoryInactive
+#[should_panic(expected = "Error(Contract, #203)")] // CampaignCategoryInactive
 fn create_campaign_rejects_inactive_category() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -313,13 +313,8 @@ fn create_campaign_rejects_inactive_category() {
         &String::from_str(&f.env, "Tech"),
         &String::from_str(&f.env, "desc"),
     );
-    f.client.update_campaign_category(
-        &f.admin,
-        &cat_id,
-        &None,
-        &None,
-        &Some(false),
-    );
+    f.client
+        .update_campaign_category(&f.admin, &cat_id, &None, &None, &Some(false));
     f.client.create_campaign(
         &f.merchant,
         &String::from_str(&f.env, "X"),
@@ -362,7 +357,7 @@ fn update_campaign_changes_title_and_description() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #64)")] // NotCampaignMerchant
+#[should_panic(expected = "Error(Contract, #209)")] // NotCampaignMerchant
 fn update_campaign_rejects_non_owner() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -485,14 +480,16 @@ fn record_campaign_contribution_accumulates() {
         &future_deadline(&f.env),
     );
     let contributor = Address::generate(&f.env);
-    f.client.record_campaign_contribution(&id, &contributor, &250i128);
-    f.client.record_campaign_contribution(&id, &contributor, &100i128);
+    f.client
+        .record_campaign_contribution(&id, &contributor, &250i128);
+    f.client
+        .record_campaign_contribution(&id, &contributor, &100i128);
     let c = f.client.get_campaign(&id);
     assert_eq!(c.raised_amount, 350);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #63)")] // CampaignInactive
+#[should_panic(expected = "Error(Contract, #208)")] // CampaignInactive
 fn record_campaign_contribution_rejects_inactive_campaign() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -511,7 +508,8 @@ fn record_campaign_contribution_rejects_inactive_campaign() {
         &future_deadline(&f.env),
     );
     f.client.set_campaign_active(&f.merchant, &id, &false);
-    f.client.record_campaign_contribution(&id, &f.merchant, &10i128);
+    f.client
+        .record_campaign_contribution(&id, &f.merchant, &10i128);
 }
 
 #[test]
@@ -533,11 +531,12 @@ fn record_campaign_contribution_rejects_zero_amount() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.record_campaign_contribution(&id, &f.merchant, &0i128);
+    f.client
+        .record_campaign_contribution(&id, &f.merchant, &0i128);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #65)")] // CampaignExpired
+#[should_panic(expected = "Error(Contract, #210)")] // CampaignExpired
 fn record_campaign_contribution_rejects_expired_campaign() {
     let f = setup();
     let cat_id = f.client.create_campaign_category(
@@ -556,9 +555,9 @@ fn record_campaign_contribution_rejects_expired_campaign() {
         &future_deadline(&f.env),
     );
     // Advance the ledger past the deadline.
-    f.env
-        .ledger()
-        .with_mut(|l| l.timestamp = f.env.ledger().timestamp() + 90_000);
+    // Read the timestamp before with_mut: reading inside the closure double-borrows.
+    let now = f.env.ledger().timestamp();
+    f.env.ledger().with_mut(|l| l.timestamp = now + 90_000);
     f.client
         .record_campaign_contribution(&id, &f.merchant, &10i128);
 }

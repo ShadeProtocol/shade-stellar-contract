@@ -1,7 +1,10 @@
 use crate::components::{admin, history, merchant, platform_fee};
 use crate::errors::ContractError;
 use crate::events;
-use crate::types::{DataKey, PlatformFeeRouteKind, Subscription, SubscriptionPlan, SubscriptionStatus, Transaction, TransactionType};
+use crate::types::{
+    DataKey, PlatformFeeRouteKind, Subscription, SubscriptionPlan, SubscriptionStatus, Transaction,
+    TransactionType,
+};
 use soroban_sdk::{panic_with_error, Address, Env, String};
 
 // TODO: create a functionality for bulk subscription plan charging

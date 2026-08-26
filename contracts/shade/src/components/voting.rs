@@ -1,8 +1,8 @@
-use crate::components::admin;
-use crate::errors::ContractError;
+use crate::components::core;
+use crate::errors::{CampaignError, ContractError};
 use crate::events;
 use crate::types::{
-    DataKey, DynamicHardCapConfig, HardCapVote, HardCapVoting, VoteDirection, VotingStatus,
+    CampaignKey, DynamicHardCapConfig, HardCapVote, HardCapVoting, VoteDirection, VotingStatus,
 };
 use soroban_sdk::{panic_with_error, Address, Env};
 
@@ -12,7 +12,7 @@ pub fn initiate_hard_cap_voting(
     proposed_cap: i128,
     voting_duration: u64,
 ) {
-    let caller = env.current_contract_address();
+    let _caller = env.current_contract_address();
     if proposed_cap <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
@@ -37,7 +37,7 @@ pub fn initiate_hard_cap_voting(
 
     env.storage()
         .persistent()
-        .set(&DataKey::HardCapVoting(crowdfund_id), &config);
+        .set(&CampaignKey::HardCapVoting(crowdfund_id), &config);
 
     events::publish_hard_cap_voting_initiated_event(
         env,
@@ -52,40 +52,35 @@ pub fn initiate_hard_cap_voting(
 pub fn get_hard_cap_voting(env: &Env, crowdfund_id: u64) -> HardCapVoting {
     env.storage()
         .persistent()
-        .get(&DataKey::HardCapVoting(crowdfund_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::VotingNotFound))
+        .get(&CampaignKey::HardCapVoting(crowdfund_id))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::VotingNotFound))
 }
 
-pub fn vote_on_hard_cap(
-    env: &Env,
-    voter: Address,
-    crowdfund_id: u64,
-    support: bool,
-) {
+pub fn vote_on_hard_cap(env: &Env, voter: Address, crowdfund_id: u64, support: bool) {
     voter.require_auth();
 
     let mut voting = get_hard_cap_voting(env, crowdfund_id);
     let now = env.ledger().timestamp();
 
     if voting.status != VotingStatus::Active {
-        panic_with_error!(env, ContractError::VotingNotActive);
+        panic_with_error!(env, CampaignError::VotingNotActive);
     }
 
     if now > voting.voting_end {
         voting.status = VotingStatus::Failed;
         env.storage()
             .persistent()
-            .set(&DataKey::HardCapVoting(crowdfund_id), &voting);
-        panic_with_error!(env, ContractError::VotingNotActive);
+            .set(&CampaignKey::HardCapVoting(crowdfund_id), &voting);
+        panic_with_error!(env, CampaignError::VotingNotActive);
     }
 
     let has_voted: bool = env
         .storage()
         .persistent()
-        .has(&DataKey::HardCapVote(crowdfund_id, voter.clone()));
+        .has(&CampaignKey::HardCapVote(crowdfund_id, voter.clone()));
 
     if has_voted {
-        panic_with_error!(env, ContractError::AlreadyVoted);
+        panic_with_error!(env, CampaignError::AlreadyVoted);
     }
 
     let vote = HardCapVote {
@@ -100,9 +95,10 @@ pub fn vote_on_hard_cap(
         created_at: now,
     };
 
-    env.storage()
-        .persistent()
-        .set(&DataKey::HardCapVote(crowdfund_id, voter.clone()), &vote);
+    env.storage().persistent().set(
+        &CampaignKey::HardCapVote(crowdfund_id, voter.clone()),
+        &vote,
+    );
 
     if support {
         voting.votes_for = voting.votes_for.saturating_add(1);
@@ -112,14 +108,14 @@ pub fn vote_on_hard_cap(
 
     env.storage()
         .persistent()
-        .set(&DataKey::HardCapVoting(crowdfund_id), &voting);
+        .set(&CampaignKey::HardCapVoting(crowdfund_id), &voting);
 
     events::publish_hard_cap_voted_event(env, crowdfund_id, voter, voting.proposed_cap, now);
 }
 
 pub fn finalize_hard_cap_voting(env: &Env, admin: Address, crowdfund_id: u64) {
     admin.require_auth();
-    let contract_admin = admin::get_admin(env);
+    let contract_admin = core::get_admin(env);
     if admin != contract_admin {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
@@ -131,7 +127,7 @@ pub fn finalize_hard_cap_voting(env: &Env, admin: Address, crowdfund_id: u64) {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
 
-    let total_votes = voting.votes_for.saturating_add(voting.votes_against);
+    let _total_votes = voting.votes_for.saturating_add(voting.votes_against);
     let votes_passed = voting.votes_for > voting.votes_against;
 
     if votes_passed {
@@ -146,7 +142,7 @@ pub fn finalize_hard_cap_voting(env: &Env, admin: Address, crowdfund_id: u64) {
 
         env.storage()
             .persistent()
-            .set(&DataKey::DynamicHardCap(crowdfund_id), &cap_config);
+            .set(&CampaignKey::DynamicHardCap(crowdfund_id), &cap_config);
 
         events::publish_dynamic_hard_cap_updated_event(
             env,
@@ -161,7 +157,7 @@ pub fn finalize_hard_cap_voting(env: &Env, admin: Address, crowdfund_id: u64) {
 
     env.storage()
         .persistent()
-        .set(&DataKey::HardCapVoting(crowdfund_id), &voting);
+        .set(&CampaignKey::HardCapVoting(crowdfund_id), &voting);
 
     events::publish_hard_cap_voting_finalized_event(
         env,
@@ -181,12 +177,16 @@ pub fn finalize_hard_cap_voting(env: &Env, admin: Address, crowdfund_id: u64) {
 pub fn get_dynamic_hard_cap(env: &Env, crowdfund_id: u64) -> DynamicHardCapConfig {
     env.storage()
         .persistent()
-        .get(&DataKey::DynamicHardCap(crowdfund_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::VotingNotFound))
+        .get(&CampaignKey::DynamicHardCap(crowdfund_id))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::VotingNotFound))
 }
 
 pub fn get_crowdfund_hard_cap(env: &Env, crowdfund_id: u64) -> i128 {
-    match env.storage().persistent().get::<_, DynamicHardCapConfig>(&DataKey::DynamicHardCap(crowdfund_id)) {
+    match env
+        .storage()
+        .persistent()
+        .get::<_, DynamicHardCapConfig>(&CampaignKey::DynamicHardCap(crowdfund_id))
+    {
         Some(config) => config.hard_cap,
         None => 0,
     }

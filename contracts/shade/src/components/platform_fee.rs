@@ -33,7 +33,7 @@ fn apply_volume_discount(fee_bps: i128, volume: i128) -> i128 {
     }
 }
 
-fn effective_fee_bps(env: &Env, merchant_id: u64, merchant: &Address, token: &Address) -> i128 {
+pub fn effective_fee_bps(env: &Env, merchant_id: u64, merchant: &Address, token: &Address) -> i128 {
     let base_bps = get_merchant_platform_fee_bps(env, merchant_id, token)
         .unwrap_or_else(|| admin::get_fee(env, token));
     apply_volume_discount(base_bps, admin::get_merchant_volume(env, merchant, token))
@@ -82,7 +82,17 @@ pub fn route_from_payer(
 ) -> PlatformFeeSplit {
     let split = compute_split(env, merchant, token, amount);
     execute_split_transfers(env, payer, merchant_account, token, &split, false);
-    finalize_route(env, merchant, token, amount, &split, route_kind, ref_id, merchant_id, payer);
+    finalize_route(
+        env,
+        merchant,
+        token,
+        amount,
+        &split,
+        route_kind,
+        ref_id,
+        merchant_id,
+        payer,
+    );
     split
 }
 
@@ -126,12 +136,7 @@ fn execute_split_transfers(
 
     if from_allowance {
         let spender = env.current_contract_address();
-        token_client.transfer_from(
-            &spender,
-            source,
-            merchant_account,
-            &split.merchant_amount,
-        );
+        token_client.transfer_from(&spender, source, merchant_account, &split.merchant_amount);
         if split.platform_fee > 0 {
             token_client.transfer_from(&spender, source, &platform_account, &split.platform_fee);
         }
@@ -188,7 +193,7 @@ pub fn set_merchant_platform_fee(
     reentrancy::enter(env);
     assert_fee_operator(env, caller);
 
-    if fee_bps < 0 || fee_bps > MAX_FEE_BPS {
+    if !(0..=MAX_FEE_BPS).contains(&fee_bps) {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
     if !admin::is_accepted_token(env, token) {
@@ -224,12 +229,7 @@ fn get_merchant_platform_fee_bps(env: &Env, merchant_id: u64, token: &Address) -
     get_merchant_platform_fee(env, merchant_id, token)
 }
 
-pub fn clear_merchant_platform_fee(
-    env: &Env,
-    caller: &Address,
-    merchant_id: u64,
-    token: &Address,
-) {
+pub fn clear_merchant_platform_fee(env: &Env, caller: &Address, merchant_id: u64, token: &Address) {
     reentrancy::enter(env);
     assert_fee_operator(env, caller);
 

@@ -1,4 +1,4 @@
-use crate::components::{core, platform_fee, reentrancy};
+use crate::components::{core, merchant, platform_fee, reentrancy};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{
@@ -186,8 +186,23 @@ pub fn get_token_oracle(env: &Env, token: &Address) -> OracleConfig {
         .unwrap_or_else(|| panic_with_error!(env, ContractError::OracleNotConfigured))
 }
 
+/// The platform fee that *would* apply to `amount` for this merchant/token.
+///
+/// This is a pure query: unlike `platform_fee::compute_split` (the payment
+/// path) it never panics. A non-positive amount yields 0, and an address that
+/// is not a registered merchant is priced at the token's default fee rather
+/// than rejected.
 pub fn calculate_fee(env: &Env, merchant: &Address, token: &Address, amount: i128) -> i128 {
-    platform_fee::compute_split(env, merchant, token, amount).platform_fee
+    if amount <= 0 {
+        return 0;
+    }
+    let merchant_id = merchant::find_merchant_id(env, merchant).unwrap_or(0);
+    let fee_bps = platform_fee::effective_fee_bps(env, merchant_id, merchant, token);
+    if fee_bps == 0 {
+        0
+    } else {
+        (amount * fee_bps) / 10_000i128
+    }
 }
 
 pub fn get_merchant_volume(env: &Env, merchant: &Address, token: &Address) -> i128 {

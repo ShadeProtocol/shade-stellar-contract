@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 extern crate std;
 
 use crate::shade::{Shade, ShadeClient};
@@ -9,7 +7,18 @@ use soroban_sdk::testutils::{Address as _, Events, Ledger as _};
 use soroban_sdk::{token, Address, Env, Map, String, Symbol, TryIntoVal, Val};
 
 /// Set up a paid invoice with an expiry timestamp.
-fn setup_paid_invoice(pay_ts: u64, expires_at: u64) -> (Env, ShadeClient<'static>, Address, u64, Address, Address, Address) {
+fn setup_paid_invoice(
+    pay_ts: u64,
+    expires_at: u64,
+) -> (
+    Env,
+    ShadeClient<'static>,
+    Address,
+    u64,
+    Address,
+    Address,
+    Address,
+) {
     let env = Env::default();
     env.mock_all_auths();
 
@@ -34,7 +43,8 @@ fn setup_paid_invoice(pay_ts: u64, expires_at: u64) -> (Env, ShadeClient<'static
 
     let amount = 1_000_i128;
     let description = String::from_str(&env, "Feature 197 Invoice");
-    let invoice_id = client.create_invoice(&merchant, &description, &amount, &token, &Some(expires_at));
+    let invoice_id =
+        client.create_invoice(&merchant, &description, &amount, &token, &Some(expires_at));
 
     let buyer = Address::generate(&env);
     let token_mint = token::StellarAssetClient::new(&env, &token);
@@ -43,7 +53,15 @@ fn setup_paid_invoice(pay_ts: u64, expires_at: u64) -> (Env, ShadeClient<'static
     env.ledger().set_timestamp(pay_ts);
     client.pay_invoice(&buyer, &invoice_id);
 
-    (env, client, buyer, invoice_id, token, merchant_account_id, merchant)
+    (
+        env,
+        client,
+        buyer,
+        invoice_id,
+        token,
+        merchant_account_id,
+        merchant,
+    )
 }
 
 // ===========================================================================
@@ -95,7 +113,13 @@ fn test_claim_on_partially_paid_invoice() {
     let partial_amount = 800_i128;
     let description = String::from_str(&env, "Partial Pay Invoice");
     let expires_at = 5_000_u64;
-    let invoice_id = client.create_invoice(&merchant, &description, &full_amount, &token, &Some(expires_at));
+    let invoice_id = client.create_invoice(
+        &merchant,
+        &description,
+        &full_amount,
+        &token,
+        &Some(expires_at),
+    );
 
     let buyer = Address::generate(&env);
     let token_mint = token::StellarAssetClient::new(&env, &token);
@@ -138,8 +162,7 @@ fn test_random_address_cannot_claim() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #1)")]
 fn test_merchant_cannot_claim() {
-    let (env, client, _buyer, invoice_id, _token, _ma, merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, _buyer, invoice_id, _token, _ma, merchant) = setup_paid_invoice(1_000, 5_000);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&merchant, &invoice_id);
@@ -233,10 +256,9 @@ fn test_different_payer_cannot_claim() {
 // ===========================================================================
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #55)")]
+#[should_panic(expected = "HostError: Error(Contract, #160)")]
 fn test_claim_before_expiry_fails() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     // Still before expiry
     env.ledger().set_timestamp(3_000);
@@ -263,10 +285,9 @@ fn test_claim_at_exact_expiry_boundary_succeeds() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #16)")]
+#[should_panic(expected = "HostError: Error(Contract, #161)")]
 fn test_double_claim_fails() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&buyer, &invoice_id);
@@ -315,7 +336,7 @@ fn test_claim_without_expiry_fails() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_unpaid_invoice_fails() {
     let env = Env::default();
     env.mock_all_auths();
@@ -349,7 +370,7 @@ fn test_unpaid_invoice_fails() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_cancelled_invoice_fails() {
     let env = Env::default();
     env.mock_all_auths();
@@ -385,10 +406,9 @@ fn test_cancelled_invoice_fails() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #16)")]
+#[should_panic(expected = "HostError: Error(Contract, #161)")]
 fn test_refunded_invoice_fails() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&buyer, &invoice_id);
@@ -441,7 +461,7 @@ fn test_insufficient_merchant_balance_fails() {
 
     // Drain the merchant account balance
     let tok = token::TokenClient::new(&env, &token);
-    tok.transfer(&merchant_account_id, &Address::generate(&env), &amount);
+    tok.transfer(&merchant_account_id, Address::generate(&env), &amount);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&buyer, &invoice_id);
@@ -527,13 +547,12 @@ fn test_claim_with_nonzero_fee() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #16)")]
+#[should_panic(expected = "HostError: Error(Contract, #161)")]
 fn test_claim_after_merchant_refund_fails() {
     // Scenario: a merchant issues a full refund (status becomes Refunded).
     // After expiry, the buyer cannot claim_refund because status is Refunded,
     // which is not Paid or PartiallyPaid.
-    let (env, client, buyer, invoice_id, _token, _ma, merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, merchant) = setup_paid_invoice(1_000, 5_000);
 
     // Merchant issues a full refund
     client.refund_invoice(&merchant, &invoice_id);
@@ -551,8 +570,7 @@ fn test_claim_after_merchant_refund_fails() {
 
 #[test]
 fn test_emits_escrow_expired_refund_event() {
-    let (env, client, buyer, invoice_id, token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&buyer, &invoice_id);
@@ -560,8 +578,22 @@ fn test_emits_escrow_expired_refund_event() {
     let events = env.events().all();
     assert!(!events.is_empty(), "No events emitted");
 
-    // The last event should be the EscrowExpiredRefundEvent
-    let (_event_contract_id, _topics, data) = events.get(events.len() - 1).unwrap();
+    // `claim_refund` also transfers tokens, so the SAC's own events trail ours.
+    // Find the EscrowExpiredRefundEvent by its topic instead of assuming it is last.
+    let wanted = Symbol::new(&env, "escrow_expired_refund_event");
+    let mut found = None;
+    for i in 0..events.len() {
+        let (_c, topics, data) = events.get(i).unwrap();
+        if topics.is_empty() {
+            continue;
+        }
+        let name: Result<Symbol, _> = topics.get(0).unwrap().try_into_val(&env);
+        if matches!(name, Ok(n) if n == wanted) {
+            found = Some(data);
+            break;
+        }
+    }
+    let data = found.expect("EscrowExpiredRefundEvent not emitted");
 
     let data_map: Map<Symbol, Val> = data.try_into_val(&env).unwrap();
 
@@ -625,7 +657,8 @@ fn test_event_emitted_with_partial_payment() {
     let full_amount = 2_000_i128;
     let partial_amount = 800_i128;
     let description = String::from_str(&env, "Partial Event");
-    let invoice_id = client.create_invoice(&merchant, &description, &full_amount, &token, &Some(5_000));
+    let invoice_id =
+        client.create_invoice(&merchant, &description, &full_amount, &token, &Some(5_000));
 
     let buyer = Address::generate(&env);
     let token_mint = token::StellarAssetClient::new(&env, &token);
@@ -656,8 +689,7 @@ fn test_event_emitted_with_partial_payment() {
 
 #[test]
 fn test_storage_unaffected_when_claim_fails_before_expiry() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     // Capture state before failed claim
     let invoice_before = client.get_invoice(&invoice_id);
@@ -671,14 +703,16 @@ fn test_storage_unaffected_when_claim_fails_before_expiry() {
     // State must be unchanged
     let invoice_after = client.get_invoice(&invoice_id);
     assert_eq!(invoice_after.status, invoice_before.status);
-    assert_eq!(invoice_after.amount_refunded, invoice_before.amount_refunded);
+    assert_eq!(
+        invoice_after.amount_refunded,
+        invoice_before.amount_refunded
+    );
     assert_eq!(invoice_after.amount_paid, invoice_before.amount_paid);
 }
 
 #[test]
 fn test_storage_unaffected_when_double_claim_fails() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
-        setup_paid_invoice(1_000, 5_000);
+    let (env, client, buyer, invoice_id, _token, _ma, _merchant) = setup_paid_invoice(1_000, 5_000);
 
     env.ledger().set_timestamp(6_000);
     client.claim_refund(&buyer, &invoice_id);
@@ -736,23 +770,29 @@ fn test_storage_unaffected_when_merchant_balance_insufficient() {
 
     // Drain merchant account
     let tok = token::TokenClient::new(&env, &token);
-    tok.transfer(&merchant_account_id, &Address::generate(&env), &amount);
+    tok.transfer(&merchant_account_id, Address::generate(&env), &amount);
 
     env.ledger().set_timestamp(6_000);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         client.claim_refund(&buyer, &invoice_id);
     }));
-    assert!(result.is_err(), "claim should have panicked due to insufficient balance");
+    assert!(
+        result.is_err(),
+        "claim should have panicked due to insufficient balance"
+    );
 
     // Invoice state must be unchanged
     let invoice_after = client.get_invoice(&invoice_id);
     assert_eq!(invoice_after.status, invoice_before.status);
-    assert_eq!(invoice_after.amount_refunded, invoice_before.amount_refunded);
+    assert_eq!(
+        invoice_after.amount_refunded,
+        invoice_before.amount_refunded
+    );
 }
 
 #[test]
 fn test_storage_unaffected_when_random_address_claims() {
-    let (env, client, buyer, invoice_id, _token, _ma, _merchant) =
+    let (env, client, _buyer, invoice_id, _token, _ma, _merchant) =
         setup_paid_invoice(1_000, 5_000);
 
     let invoice_before = client.get_invoice(&invoice_id);
@@ -762,10 +802,16 @@ fn test_storage_unaffected_when_random_address_claims() {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         client.claim_refund(&random, &invoice_id);
     }));
-    assert!(result.is_err(), "random address should not be able to claim");
+    assert!(
+        result.is_err(),
+        "random address should not be able to claim"
+    );
 
     let invoice_after = client.get_invoice(&invoice_id);
     assert_eq!(invoice_after.status, invoice_before.status);
     assert_eq!(invoice_after.amount_paid, invoice_before.amount_paid);
-    assert_eq!(invoice_after.amount_refunded, invoice_before.amount_refunded);
+    assert_eq!(
+        invoice_after.amount_refunded,
+        invoice_before.amount_refunded
+    );
 }

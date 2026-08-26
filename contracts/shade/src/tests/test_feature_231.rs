@@ -7,11 +7,16 @@
 //! 3. Event emission        – correct events emitted at each lifecycle step
 //! 4. Storage rollback      – panicking calls must not mutate state
 //! 5. Edge cases            – boundary values, uninitialized states, quorum math
+
 #![cfg(test)]
+
+extern crate std;
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::WithdrawalProposalStatus;
+use account::account::{MerchantAccount, MerchantAccountClient};
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
+use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::{Address, Env, String, Vec};
 
 // ── Shared setup helpers ──────────────────────────────────────────────────────
@@ -20,7 +25,7 @@ use soroban_sdk::{Address, Env, String, Vec};
 /// `(env, client, admin, token)`.
 fn base_setup() -> (Env, ShadeClient<'static>, Address, Address) {
     let env = Env::default();
-    env.mock_all_auths();
+    env.mock_all_auths_allowing_non_root_auth();
     env.ledger().with_mut(|l| l.timestamp = 1_000_000);
 
     let contract_id = env.register(Shade, ());
@@ -30,9 +35,8 @@ fn base_setup() -> (Env, ShadeClient<'static>, Address, Address) {
     client.initialize(&admin);
 
     let token_admin = Address::generate(&env);
-    let token = env
-        .register_stellar_asset_contract_v2(token_admin)
-        .address();
+    let token_sac = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token = token_sac.address();
     client.add_accepted_token(&admin, &token);
     client.set_fee(&admin, &token, &0); // zero fee keeps math simple
 
@@ -60,6 +64,19 @@ fn multisig_setup(
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
 
+    // Deploy + link a real merchant-account contract: executing a withdrawal
+    // pulls funds out via `withdraw_to`, which needs an actual contract.
+    let merchant_account_id = env.register(MerchantAccount, ());
+    MerchantAccountClient::new(&env, &merchant_account_id).initialize(
+        &merchant,
+        &client.address,
+        &1_u64,
+    );
+    client.set_merchant_account(&merchant, &merchant_account_id);
+
+    // Fund the account so executed withdrawals have a balance to draw on.
+    StellarAssetClient::new(&env, &token).mint(&merchant_account_id, &1_000_000);
+
     // Build signer list.
     let mut signers_std = std::vec::Vec::new();
     let mut signers_sdk = Vec::new(&env);
@@ -74,6 +91,26 @@ fn multisig_setup(
     client.set_multisig_threshold(&admin, &token, &1_000);
 
     (env, client, admin, token, merchant, signers_std)
+}
+
+/// Deploy + link a funded merchant-account contract for `merchant`.
+/// Executing a withdrawal pulls funds via `withdraw_to`, so the merchant needs
+/// a real account contract holding a balance.
+fn link_funded_account(
+    env: &Env,
+    client: &ShadeClient<'_>,
+    merchant: &Address,
+    token: &Address,
+    merchant_id: u64,
+) {
+    let account_id = env.register(MerchantAccount, ());
+    MerchantAccountClient::new(env, &account_id).initialize(
+        merchant,
+        &client.address,
+        &merchant_id,
+    );
+    client.set_merchant_account(merchant, &account_id);
+    StellarAssetClient::new(env, token).mint(&account_id, &1_000_000);
 }
 
 /// Shorthand: open a proposal and return its ID.
@@ -282,6 +319,7 @@ fn test_happy_reconfigure_multisig_updates_quorum() {
     // The new signer can now approve proposals on their own.
     let merchant2 = Address::generate(&env);
     client.register_merchant(&merchant2);
+    link_funded_account(&env, &client, &merchant2, &token, 2);
     // token threshold is still 1_000.
     let recipient = Address::generate(&env);
     let id = open_proposal(&client, &env, &merchant2, &token, 1_000, &recipient);
@@ -526,9 +564,10 @@ fn test_event_withdrawal_approved_emitted_pre_quorum() {
     let (env, client, _admin, token, merchant, signers) = multisig_setup(3, 3);
     let recipient = Address::generate(&env);
     let id = open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);
-    let events_before = env.events().all().len();
     client.approve_withdrawal(&signers[0], &id);
-    assert!(env.events().all().len() > events_before);
+    // `env.events().all()` returns only the events of the most recent
+    // invocation, so assert on that call's output rather than a running total.
+    assert!(!env.events().all().is_empty());
 }
 
 /// When the final approval triggers execution, both approval and execution
@@ -538,10 +577,9 @@ fn test_event_withdrawal_executed_emitted_at_quorum() {
     let (env, client, _admin, token, merchant, signers) = multisig_setup(2, 1);
     let recipient = Address::generate(&env);
     let id = open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);
-    let events_before = env.events().all().len();
     client.approve_withdrawal(&signers[0], &id);
-    // At least the approval event + execution event = 2 new events.
-    assert!(env.events().all().len() >= events_before + 2);
+    // At least the approval event + execution event.
+    assert!(env.events().all().len() >= 2);
 }
 
 /// `cancel_withdrawal` emits a cancellation event.
@@ -550,9 +588,8 @@ fn test_event_withdrawal_cancelled_emitted() {
     let (env, client, _admin, token, merchant, _signers) = multisig_setup(2, 2);
     let recipient = Address::generate(&env);
     let id = open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);
-    let events_before = env.events().all().len();
     client.cancel_withdrawal(&merchant, &id);
-    assert!(env.events().all().len() > events_before);
+    assert!(!env.events().all().is_empty());
 }
 
 /// Multiple proposals each emit their own proposal event.
@@ -560,13 +597,14 @@ fn test_event_withdrawal_cancelled_emitted() {
 fn test_event_multiple_proposals_emit_distinct_events() {
     let (env, client, _admin, token, merchant, _signers) = multisig_setup(2, 1);
     let recipient = Address::generate(&env);
-    let events_before = env.events().all().len();
     open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);
     let after_first = env.events().all().len();
     open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);
     let after_second = env.events().all().len();
-    assert!(after_first > events_before);
-    assert!(after_second > after_first);
+    // `env.events().all()` returns only the events of the most recent
+    // invocation, so assert on that call's output rather than a running total.
+    assert!(after_first > 0);
+    assert!(after_second > 0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -653,6 +691,7 @@ fn test_rollback_bad_configure_does_not_overwrite_good_config() {
     // failed reconfiguration — proving the good config survived.
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);
+    link_funded_account(&env, &client, &merchant, &token, 1);
     client.set_multisig_threshold(&admin, &token, &1_000);
     let recipient = Address::generate(&env);
     let id = open_proposal(&client, &env, &merchant, &token, 1_000, &recipient);

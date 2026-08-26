@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::components::admin as admin_component;
 use crate::errors::ContractError;
 use crate::shade::Shade;

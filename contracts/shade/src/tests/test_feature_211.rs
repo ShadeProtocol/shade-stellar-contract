@@ -116,8 +116,7 @@ fn create_event_and_purchase(
 #[test]
 fn resale_splits_royalty_and_proceeds_correctly() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     let price: i128 = 1_000;
     let royalty_bps: u32 = 1_000; // 10%
@@ -165,11 +164,9 @@ fn resale_splits_royalty_and_proceeds_correctly() {
 #[test]
 fn resale_with_zero_royalty_gives_full_proceeds_to_seller() {
     let f = setup();
-    let (merchant, _merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, _merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 0); // 0% royalty
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 0); // 0% royalty
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -181,18 +178,19 @@ fn resale_with_zero_royalty_gives_full_proceeds_to_seller() {
         .resell_ticket(&seller, &buyer, &ticket_id, &resale_price);
 
     // All proceeds go to seller, zero royalty.
-    assert_eq!(balance(&f.env, &f.token, &seller), seller_before + resale_price);
+    assert_eq!(
+        balance(&f.env, &f.token, &seller),
+        seller_before + resale_price
+    );
     assert_eq!(f.client.get_ticket(&ticket_id).owner, buyer);
 }
 
 #[test]
 fn resale_with_100_percent_royalty_gives_all_to_merchant() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 10_000); // 100% royalty
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 10_000); // 100% royalty
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -215,11 +213,9 @@ fn resale_with_100_percent_royalty_gives_all_to_merchant() {
 #[test]
 fn resale_with_1_bps_royalty_rounds_down_to_zero() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 1); // 0.01% royalty
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 1); // 0.01% royalty
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -232,7 +228,10 @@ fn resale_with_1_bps_royalty_rounds_down_to_zero() {
         .resell_ticket(&seller, &buyer, &ticket_id, &resale_price);
 
     // Royalty rounds to 0, seller gets full amount.
-    assert_eq!(balance(&f.env, &f.token, &seller), seller_before + resale_price);
+    assert_eq!(
+        balance(&f.env, &f.token, &seller),
+        seller_before + resale_price
+    );
     assert_eq!(
         balance(&f.env, &f.token, &merchant_account),
         merchant_before
@@ -245,13 +244,11 @@ fn resale_preserves_ticket_purchase_price() {
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     let price: i128 = 300;
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, price, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, price, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1_000);
 
     // purchase_price should remain from the original purchase.
     let ticket = f.client.get_ticket(&ticket_id);
@@ -264,16 +261,14 @@ fn resale_event_tickets_list_not_modified() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let event_tickets_before = f.client.get_event_tickets(&event_id);
     assert_eq!(event_tickets_before.len(), 1);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &800);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &800);
 
     // Event tickets list is unchanged by resale.
     let event_tickets_after = f.client.get_event_tickets(&event_id);
@@ -284,11 +279,9 @@ fn resale_event_tickets_list_not_modified() {
 #[test]
 fn multiple_resale_chain_cumulative_royalties() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, owner1) =
-        create_event_and_purchase(&f, &merchant, 100, 1_000); // 10% royalty
+    let (_event_id, ticket_id, owner1) = create_event_and_purchase(&f, &merchant, 100, 1_000); // 10% royalty
 
     let owner2 = Address::generate(&f.env);
     let owner3 = Address::generate(&f.env);
@@ -298,8 +291,7 @@ fn multiple_resale_chain_cumulative_royalties() {
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
     // First resale: 500
-    f.client
-        .resell_ticket(&owner1, &owner2, &ticket_id, &500);
+    f.client.resell_ticket(&owner1, &owner2, &ticket_id, &500);
     assert_eq!(f.client.get_ticket(&ticket_id).owner, owner2);
     assert_eq!(
         balance(&f.env, &f.token, &merchant_account),
@@ -307,8 +299,7 @@ fn multiple_resale_chain_cumulative_royalties() {
     );
 
     // Second resale: 1_000
-    f.client
-        .resell_ticket(&owner2, &owner3, &ticket_id, &1_000);
+    f.client.resell_ticket(&owner2, &owner3, &ticket_id, &1_000);
     assert_eq!(f.client.get_ticket(&ticket_id).owner, owner3);
     assert_eq!(
         balance(&f.env, &f.token, &merchant_account),
@@ -328,16 +319,14 @@ fn resale_emits_events() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 1_000, 500); // 5% royalty
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 1_000, 500); // 5% royalty
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     let events_before = f.env.events().all().len();
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &2_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &2_000);
 
     let events_after = f.env.events().all();
     // At least one new event was emitted during the resale.
@@ -349,13 +338,12 @@ fn resale_emits_events() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[should_panic(expected = "Error(Contract, #52)")] // NotTicketOwner
+#[should_panic(expected = "Error(Contract, #126)")] // NotTicketOwner
 fn resale_rejects_non_owner_seller() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, _real_owner) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, _real_owner) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let imposter = Address::generate(&f.env);
     let buyer = Address::generate(&f.env);
@@ -363,8 +351,7 @@ fn resale_rejects_non_owner_seller() {
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     // Imposter tries to sell a ticket they don't own.
-    f.client
-        .resell_ticket(&imposter, &buyer, &ticket_id, &200);
+    f.client.resell_ticket(&imposter, &buyer, &ticket_id, &200);
 }
 
 #[test]
@@ -373,16 +360,14 @@ fn resale_rejects_self_resale() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     // Seller tries to resell to themselves.
-    f.client
-        .resell_ticket(&seller, &seller, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &seller, &ticket_id, &500);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #51)")] // TicketNotFound
+#[should_panic(expected = "Error(Contract, #125)")] // TicketNotFound
 fn resale_rejects_nonexistent_ticket() {
     let f = setup();
     let a = Address::generate(&f.env);
@@ -396,8 +381,7 @@ fn resale_rejects_cancelled_event() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     // Cancel the event.
     f.client.cancel_event_and_batch_refund(&merchant, &event_id);
@@ -405,8 +389,7 @@ fn resale_rejects_cancelled_event() {
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 }
 
 #[test]
@@ -415,8 +398,7 @@ fn resale_rejects_removed_token() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     // Admin removes the token from accepted list.
     f.client.remove_accepted_token(&f.admin, &f.token);
@@ -424,18 +406,16 @@ fn resale_rejects_removed_token() {
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #54)")] // InvalidResalePrice
+#[should_panic(expected = "Error(Contract, #127)")] // InvalidResalePrice
 fn resale_rejects_zero_price() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -444,18 +424,18 @@ fn resale_rejects_zero_price() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #54)")] // InvalidResalePrice
+#[should_panic(expected = "Error(Contract, #127)")] // InvalidResalePrice
 fn resale_rejects_negative_price() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client.resell_ticket(&seller, &buyer, &ticket_id, &(-1i128));
+    f.client
+        .resell_ticket(&seller, &buyer, &ticket_id, &(-1i128));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -467,34 +447,29 @@ fn resale_with_minimum_price_of_1() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 1, 1_000);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 1, 1_000);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     let seller_before = balance(&f.env, &f.token, &seller);
     // 1 * 1000 / 10_000 = 0 royalty
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1);
     assert_eq!(balance(&f.env, &f.token, &seller), seller_before + 1);
 }
 
 #[test]
 fn resale_with_10000_bps_royalty_full_amount() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 10_000);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 10_000);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &9_999);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &9_999);
 
     // 9999 * 10000 / 10000 = 9999 royalty (all to merchant).
     assert_eq!(
@@ -506,12 +481,10 @@ fn resale_with_10000_bps_royalty_full_amount() {
 #[test]
 fn resale_with_price_equal_to_royalty_gives_seller_proceeds() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     // 50% royalty
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 5_000);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 5_000);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -520,8 +493,7 @@ fn resale_with_price_equal_to_royalty_gives_seller_proceeds() {
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
     // Resale price = 100, royalty = 50, seller_proceeds = 50
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &100);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &100);
 
     assert_eq!(balance(&f.env, &f.token, &seller), seller_before + 50);
     assert_eq!(
@@ -533,12 +505,10 @@ fn resale_with_price_equal_to_royalty_gives_seller_proceeds() {
 #[test]
 fn resale_seller_proceeds_zero_when_royalty_equals_price() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     // 100% royalty
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 10_000);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 10_000);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -547,8 +517,7 @@ fn resale_seller_proceeds_zero_when_royalty_equals_price() {
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
     // seller_proceeds = 0, no transfer to seller.
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &100);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &100);
 
     assert_eq!(balance(&f.env, &f.token, &seller), seller_before);
     assert_eq!(
@@ -560,12 +529,10 @@ fn resale_seller_proceeds_zero_when_royalty_equals_price() {
 #[test]
 fn resale_after_primary_purchase_with_high_price() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     let price: i128 = 100_000;
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, price, 1_000); // 10%
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, price, 1_000); // 10%
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE * 100);
@@ -593,12 +560,10 @@ fn resale_after_primary_purchase_with_high_price() {
 #[test]
 fn resale_with_small_amounts_rounds_royalty_down() {
     let f = setup();
-    let (merchant, merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
     // 33% royalty
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 3_300);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 3_300);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -607,11 +572,13 @@ fn resale_with_small_amounts_rounds_royalty_down() {
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
     // 10 * 3300 / 10_000 = 3 (truncated)
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &10);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &10);
 
     assert_eq!(balance(&f.env, &f.token, &seller), seller_before + 7);
-    assert_eq!(balance(&f.env, &f.token, &merchant_account), merchant_before + 3);
+    assert_eq!(
+        balance(&f.env, &f.token, &merchant_account),
+        merchant_before + 3
+    );
 }
 
 #[test]
@@ -619,13 +586,11 @@ fn resale_ticket_event_id_preserved() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &800);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &800);
 
     let ticket = f.client.get_ticket(&ticket_id);
     assert_eq!(ticket.event_id, event_id);
@@ -642,15 +607,15 @@ fn resale_overflow_bps_of_with_large_price_and_royalty() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 3); // 3 bps
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 3); // 3 bps
 
     let buyer = Address::generate(&f.env);
     // Fund buyer with enough to cover the massive resale price.
     fund(&f.env, &f.token, &buyer, i128::MAX);
 
     // i128::MAX * 3 overflows i128, causing bps_of to return None → InvalidAmount panic.
-    f.client.resell_ticket(&seller, &buyer, &ticket_id, &i128::MAX);
+    f.client
+        .resell_ticket(&seller, &buyer, &ticket_id, &i128::MAX);
 }
 
 #[test]
@@ -658,15 +623,13 @@ fn resale_bps_of_does_not_panic_on_small_values() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 1, 1); // minimal everything
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 1, 1); // minimal everything
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     // 1 * 1 / 10_000 = 0 royalty, should not panic.
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1);
     assert_eq!(f.client.get_ticket(&ticket_id).owner, buyer);
 }
 
@@ -679,16 +642,14 @@ fn resale_removes_ticket_from_seller_user_tickets() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     // Seller has 1 ticket before resale.
     assert_eq!(f.client.get_user_tickets(&seller).len(), 1);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 
     // Seller has 0 tickets after resale.
     assert!(f.client.get_user_tickets(&seller).is_empty());
@@ -701,8 +662,7 @@ fn resale_adds_ticket_to_buyer_user_tickets() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
@@ -710,8 +670,7 @@ fn resale_adds_ticket_to_buyer_user_tickets() {
     // Buyer has 0 tickets before.
     assert!(f.client.get_user_tickets(&buyer).is_empty());
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 
     let buyer_tickets = f.client.get_user_tickets(&buyer);
     assert_eq!(buyer_tickets.len(), 1);
@@ -723,16 +682,14 @@ fn resale_does_not_change_event_sold_count() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let event_before = f.client.get_event(&event_id);
     assert_eq!(event_before.sold, 1);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 
     // sold count is only for primary purchases, not affected by resale.
     let event_after = f.client.get_event(&event_id);
@@ -744,13 +701,11 @@ fn resale_does_not_change_event_token_or_price() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &999);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &999);
 
     let event = f.client.get_event(&event_id);
     assert_eq!(event.ticket_price, 500);
@@ -767,16 +722,14 @@ fn resale_emits_ticket_resold_event() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 1_000, 1_000); // 10% royalty
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 1_000, 1_000); // 10% royalty
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     let events_before = f.env.events().all().len();
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &2_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &2_000);
 
     let events_after = f.env.events().all();
     // At least one new event was emitted.
@@ -849,8 +802,7 @@ fn resale_does_not_corrupt_seller_ticket_list_on_success() {
     // Resell only ticket_id1.
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id1, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id1, &500);
 
     // Seller still has ticket_id2.
     let seller_tickets = f.client.get_user_tickets(&seller);
@@ -868,8 +820,7 @@ fn resale_rejected_when_contract_paused() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     // Pause the contract.
     f.client.pause(&f.admin);
@@ -877,8 +828,7 @@ fn resale_rejected_when_contract_paused() {
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
 }
 
 #[test]
@@ -909,8 +859,7 @@ fn resale_works_after_unpause() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     f.client.pause(&f.admin);
     f.client.unpause(&f.admin);
@@ -918,8 +867,7 @@ fn resale_works_after_unpause() {
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &500);
     assert_eq!(f.client.get_ticket(&ticket_id).owner, buyer);
 }
 
@@ -930,11 +878,9 @@ fn resale_works_after_unpause() {
 #[test]
 fn resale_then_cancel_event_does_not_affect_resale_owner() {
     let f = setup();
-    let (merchant, _merchant_account) =
-        register_merchant_with_account(&f.env, &f.client, &f.token);
+    let (merchant, _merchant_account) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, original_owner) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, original_owner) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let new_owner = Address::generate(&f.env);
     fund(&f.env, &f.token, &new_owner, TOKEN_INITIAL_BALANCE);
@@ -989,8 +935,7 @@ fn resale_with_different_accepted_token() {
     let buyer = Address::generate(&f.env);
     fund(&f.env, &token2, &buyer, TOKEN_INITIAL_BALANCE);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &2_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &2_000);
 
     let ticket = f.client.get_ticket(&ticket_id);
     assert_eq!(ticket.owner, buyer);
@@ -1028,8 +973,7 @@ fn resale_works_on_sold_out_event() {
     // But resale still works.
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &200);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &200);
 
     assert_eq!(f.client.get_ticket(&ticket_id).owner, buyer);
 }
@@ -1043,19 +987,17 @@ fn royalty_math_5_percent() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 500); // 5%
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 500); // 5%
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    let merchant_account = f.client.get_merchant_account(
-        &f.client.get_ticket(&ticket_id).event_id,
-    );
+    let merchant_account = f
+        .client
+        .get_merchant_account(&f.client.get_ticket(&ticket_id).event_id);
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1_000);
 
     // 1000 * 500 / 10_000 = 50
     assert_eq!(
@@ -1069,19 +1011,17 @@ fn royalty_math_15_percent() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 1_500); // 15%
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 1_500); // 15%
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    let merchant_account = f.client.get_merchant_account(
-        &f.client.get_ticket(&ticket_id).event_id,
-    );
+    let merchant_account = f
+        .client
+        .get_merchant_account(&f.client.get_ticket(&ticket_id).event_id);
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1_000);
 
     // 1000 * 1500 / 10_000 = 150
     assert_eq!(
@@ -1095,30 +1035,25 @@ fn royalty_math_50_percent() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 100, 5_000); // 50%
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 100, 5_000); // 50%
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
-    let merchant_account = f.client.get_merchant_account(
-        &f.client.get_ticket(&ticket_id).event_id,
-    );
+    let merchant_account = f
+        .client
+        .get_merchant_account(&f.client.get_ticket(&ticket_id).event_id);
     let merchant_before = balance(&f.env, &f.token, &merchant_account);
     let seller_before = balance(&f.env, &f.token, &seller);
 
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &1_000);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &1_000);
 
     // 1000 * 5000 / 10_000 = 500
     assert_eq!(
         balance(&f.env, &f.token, &merchant_account),
         merchant_before + 500
     );
-    assert_eq!(
-        balance(&f.env, &f.token, &seller),
-        seller_before + 500
-    );
+    assert_eq!(balance(&f.env, &f.token, &seller), seller_before + 500);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1130,13 +1065,11 @@ fn get_ticket_returns_correct_owner_after_resale() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &800);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &800);
 
     let ticket = f.client.get_ticket(&ticket_id);
     assert_eq!(ticket.owner, buyer);
@@ -1148,13 +1081,11 @@ fn get_event_tickets_unchanged_after_resale() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (event_id, ticket_id, seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (event_id, ticket_id, seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let buyer = Address::generate(&f.env);
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
-    f.client
-        .resell_ticket(&seller, &buyer, &ticket_id, &800);
+    f.client.resell_ticket(&seller, &buyer, &ticket_id, &800);
 
     let tickets = f.client.get_event_tickets(&event_id);
     assert_eq!(tickets.len(), 1);
@@ -1166,7 +1097,7 @@ fn get_event_tickets_unchanged_after_resale() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[should_panic(expected = "Error(Contract, #51)")] // TicketNotFound
+#[should_panic(expected = "Error(Contract, #125)")] // TicketNotFound
 fn resale_fails_on_ticket_id_zero() {
     let f = setup();
     let a = Address::generate(&f.env);
@@ -1176,13 +1107,12 @@ fn resale_fails_on_ticket_id_zero() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #52)")] // NotTicketOwner
+#[should_panic(expected = "Error(Contract, #126)")] // NotTicketOwner
 fn resale_unauthorized_seller_rejected() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, _real_owner) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, _real_owner) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let unauthorized = Address::generate(&f.env);
     let buyer = Address::generate(&f.env);
@@ -1195,14 +1125,13 @@ fn resale_unauthorized_seller_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #52)")] // NotTicketOwner
+#[should_panic(expected = "Error(Contract, #126)")] // NotTicketOwner
 fn resale_atomicity_no_state_change_on_panic() {
     // When a resale panics (e.g. not ticket owner), no state changes persist.
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, _seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, _seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let imposter = Address::generate(&f.env);
     let buyer = Address::generate(&f.env);
@@ -1211,18 +1140,16 @@ fn resale_atomicity_no_state_change_on_panic() {
 
     // This will panic because imposter is not the owner.
     // Soroban transactions are atomic: on panic, all storage changes roll back.
-    f.client
-        .resell_ticket(&imposter, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&imposter, &buyer, &ticket_id, &500);
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #52)")] // NotTicketOwner
+#[should_panic(expected = "Error(Contract, #126)")] // NotTicketOwner
 fn resale_panicked_resale_does_not_modify_user_tickets() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
 
-    let (_event_id, ticket_id, _seller) =
-        create_event_and_purchase(&f, &merchant, 500, 500);
+    let (_event_id, ticket_id, _seller) = create_event_and_purchase(&f, &merchant, 500, 500);
 
     let imposter = Address::generate(&f.env);
     let buyer = Address::generate(&f.env);
@@ -1230,6 +1157,5 @@ fn resale_panicked_resale_does_not_modify_user_tickets() {
     fund(&f.env, &f.token, &buyer, TOKEN_INITIAL_BALANCE);
 
     // Panics — Soroban guarantees atomic rollback, so no state mutation persists.
-    f.client
-        .resell_ticket(&imposter, &buyer, &ticket_id, &500);
+    f.client.resell_ticket(&imposter, &buyer, &ticket_id, &500);
 }

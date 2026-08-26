@@ -6,7 +6,7 @@ use soroban_sdk::{Address, Env};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-fn setup(env: &Env) -> (Address, TicketingFactoryClient) {
+fn setup(env: &Env) -> (Address, TicketingFactoryClient<'_>) {
     let contract_id = env.register(TicketingFactory, ());
     let client = TicketingFactoryClient::new(env, &contract_id);
     let admin = Address::generate(env);
@@ -95,7 +95,7 @@ fn register_event_ref(
 fn test_get_event_ref_after_registration() {
     let env = Env::default();
     env.mock_all_auths();
-    let (_admin, client) = setup(&env);
+    let (_admin, _client) = setup(&env);
     let factory_id = env.register(TicketingFactory, ());
 
     let organizer = Address::generate(&env);

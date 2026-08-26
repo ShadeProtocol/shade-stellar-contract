@@ -1,22 +1,20 @@
 use crate::components::{admin, merchant};
-use crate::errors::ContractError;
+use crate::errors::{CampaignError, ContractError};
 use crate::events;
-use crate::types::{
-    Campaign, CampaignStatus, DataKey, Pledge, PledgeStatus,
-};
+use crate::types::{CampaignKey, Pledge, PledgeCampaign, PledgeCampaignStatus, PledgeStatus};
 use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
 
 fn get_campaign_count(env: &Env) -> u64 {
     env.storage()
         .persistent()
-        .get(&DataKey::CampaignCount)
+        .get(&CampaignKey::PledgeCampaignCount)
         .unwrap_or(0)
 }
 
 fn get_pledge_count(env: &Env) -> u64 {
     env.storage()
         .persistent()
-        .get(&DataKey::PledgeCount)
+        .get(&CampaignKey::PledgeCount)
         .unwrap_or(0)
 }
 
@@ -24,24 +22,25 @@ fn track_campaign_pledge(env: &Env, campaign_id: u64, pledge_id: u64) {
     let mut pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignPledges(campaign_id))
+        .get(&CampaignKey::CampaignPledges(campaign_id))
         .unwrap_or_else(|| Vec::new(env));
     pledge_ids.push_back(pledge_id);
     env.storage()
         .persistent()
-        .set(&DataKey::CampaignPledges(campaign_id), &pledge_ids);
+        .set(&CampaignKey::CampaignPledges(campaign_id), &pledge_ids);
 }
 
 fn track_contributor_pledge(env: &Env, contributor: &Address, pledge_id: u64) {
     let mut pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::ContributorPledges(contributor.clone()))
+        .get(&CampaignKey::ContributorPledges(contributor.clone()))
         .unwrap_or_else(|| Vec::new(env));
     pledge_ids.push_back(pledge_id);
-    env.storage()
-        .persistent()
-        .set(&DataKey::ContributorPledges(contributor.clone()), &pledge_ids);
+    env.storage().persistent().set(
+        &CampaignKey::ContributorPledges(contributor.clone()),
+        &pledge_ids,
+    );
 }
 
 pub fn create_campaign(
@@ -72,9 +71,9 @@ pub fn create_campaign(
     let campaign_id = get_campaign_count(env) + 1;
     env.storage()
         .persistent()
-        .set(&DataKey::CampaignCount, &campaign_id);
+        .set(&CampaignKey::PledgeCampaignCount, &campaign_id);
 
-    let campaign = Campaign {
+    let campaign = PledgeCampaign {
         id: campaign_id,
         merchant_id,
         merchant: merchant_address.clone(),
@@ -83,15 +82,15 @@ pub fn create_campaign(
         token: token.clone(),
         deadline,
         raised: 0,
-        status: CampaignStatus::Active,
+        status: PledgeCampaignStatus::Active,
         date_created: env.ledger().timestamp(),
         refunds_processed: false,
     };
     env.storage()
         .persistent()
-        .set(&DataKey::Campaign(campaign_id), &campaign);
+        .set(&CampaignKey::PledgeCampaign(campaign_id), &campaign);
 
-    events::publish_campaign_created_event(
+    events::publish_pledge_campaign_created_event(
         env,
         campaign_id,
         merchant_address.clone(),
@@ -106,11 +105,11 @@ pub fn create_campaign(
     campaign_id
 }
 
-pub fn get_campaign(env: &Env, campaign_id: u64) -> Campaign {
+pub fn get_campaign(env: &Env, campaign_id: u64) -> PledgeCampaign {
     env.storage()
         .persistent()
-        .get(&DataKey::Campaign(campaign_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::CampaignNotFound))
+        .get(&CampaignKey::PledgeCampaign(campaign_id))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::CampaignNotFound))
 }
 
 pub fn pledge(
@@ -127,7 +126,7 @@ pub fn pledge(
     }
 
     let mut campaign = get_campaign(env, campaign_id);
-    if campaign.status != CampaignStatus::Active {
+    if campaign.status != PledgeCampaignStatus::Active {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
     if env.ledger().timestamp() > campaign.deadline {
@@ -144,7 +143,7 @@ pub fn pledge(
     let pledge_id = get_pledge_count(env) + 1;
     env.storage()
         .persistent()
-        .set(&DataKey::PledgeCount, &pledge_id);
+        .set(&CampaignKey::PledgeCount, &pledge_id);
 
     let pledge_entry = Pledge {
         id: pledge_id,
@@ -157,7 +156,7 @@ pub fn pledge(
     };
     env.storage()
         .persistent()
-        .set(&DataKey::Pledge(pledge_id), &pledge_entry);
+        .set(&CampaignKey::Pledge(pledge_id), &pledge_entry);
 
     let token_client = token::TokenClient::new(env, token);
     let merchant_account = merchant::get_merchant_account(env, campaign.merchant_id);
@@ -166,7 +165,7 @@ pub fn pledge(
     campaign.raised = campaign.raised.saturating_add(amount);
     env.storage()
         .persistent()
-        .set(&DataKey::Campaign(campaign_id), &campaign);
+        .set(&CampaignKey::PledgeCampaign(campaign_id), &campaign);
 
     track_campaign_pledge(env, campaign_id, pledge_id);
     track_contributor_pledge(env, contributor, pledge_id);
@@ -195,17 +194,17 @@ pub fn execute_campaign(env: &Env, merchant_address: &Address, campaign_id: u64)
     if env.ledger().timestamp() <= campaign.deadline {
         panic_with_error!(env, ContractError::InvoiceExpired);
     }
-    if campaign.status != CampaignStatus::Active {
+    if campaign.status != PledgeCampaignStatus::Active {
         panic_with_error!(env, ContractError::AlreadyInitialized);
     }
     if campaign.raised < campaign.goal {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
 
-    campaign.status = CampaignStatus::Executed;
+    campaign.status = PledgeCampaignStatus::Executed;
     env.storage()
         .persistent()
-        .set(&DataKey::Campaign(campaign_id), &campaign);
+        .set(&CampaignKey::PledgeCampaign(campaign_id), &campaign);
 
     events::publish_campaign_executed_event(
         env,
@@ -224,17 +223,17 @@ pub fn cancel_campaign(env: &Env, merchant_address: &Address, campaign_id: u64) 
     if campaign.merchant != *merchant_address {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
-    if campaign.status != CampaignStatus::Active {
+    if campaign.status != PledgeCampaignStatus::Active {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
     if env.ledger().timestamp() > campaign.deadline {
         panic_with_error!(env, ContractError::InvoiceExpired);
     }
 
-    campaign.status = CampaignStatus::Cancelled;
+    campaign.status = PledgeCampaignStatus::Cancelled;
     env.storage()
         .persistent()
-        .set(&DataKey::Campaign(campaign_id), &campaign);
+        .set(&CampaignKey::PledgeCampaign(campaign_id), &campaign);
 
     events::publish_campaign_cancelled_event(
         env,
@@ -255,21 +254,21 @@ pub fn claim_refund(env: &Env, contributor: &Address, campaign_id: u64) {
     if campaign.raised >= campaign.goal {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
-    if campaign.status == CampaignStatus::Executed {
+    if campaign.status == PledgeCampaignStatus::Executed {
         panic_with_error!(env, ContractError::AlreadyInitialized);
     }
 
     let pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignPledges(campaign_id))
+        .get(&CampaignKey::CampaignPledges(campaign_id))
         .unwrap_or_else(|| Vec::new(env));
 
     for pledge_id in pledge_ids.iter() {
         let mut pledge_entry: Pledge = match env
             .storage()
             .persistent()
-            .get(&DataKey::Pledge(pledge_id))
+            .get(&CampaignKey::Pledge(pledge_id))
         {
             Some(p) => p,
             None => continue,
@@ -288,7 +287,7 @@ pub fn claim_refund(env: &Env, contributor: &Address, campaign_id: u64) {
         pledge_entry.status = PledgeStatus::Refunded;
         env.storage()
             .persistent()
-            .set(&DataKey::Pledge(pledge_id), &pledge_entry);
+            .set(&CampaignKey::Pledge(pledge_id), &pledge_entry);
 
         let merchant_account = merchant::get_merchant_account(env, campaign.merchant_id);
         let token_client = token::TokenClient::new(env, &pledge_entry.token);
@@ -315,7 +314,7 @@ pub fn batch_refund(env: &Env, campaign_id: u64) {
     if campaign.raised >= campaign.goal {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
-    if campaign.status == CampaignStatus::Executed {
+    if campaign.status == PledgeCampaignStatus::Executed {
         panic_with_error!(env, ContractError::AlreadyInitialized);
     }
     if campaign.refunds_processed {
@@ -325,12 +324,12 @@ pub fn batch_refund(env: &Env, campaign_id: u64) {
     campaign.refunds_processed = true;
     env.storage()
         .persistent()
-        .set(&DataKey::Campaign(campaign_id), &campaign);
+        .set(&CampaignKey::PledgeCampaign(campaign_id), &campaign);
 
     let pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignPledges(campaign_id))
+        .get(&CampaignKey::CampaignPledges(campaign_id))
         .unwrap_or_else(|| Vec::new(env));
     let count = pledge_ids.len();
     let mut total_refunded: i128 = 0;
@@ -339,7 +338,7 @@ pub fn batch_refund(env: &Env, campaign_id: u64) {
         let mut pledge_entry: Pledge = match env
             .storage()
             .persistent()
-            .get(&DataKey::Pledge(pledge_id))
+            .get(&CampaignKey::Pledge(pledge_id))
         {
             Some(p) => p,
             None => continue,
@@ -355,7 +354,7 @@ pub fn batch_refund(env: &Env, campaign_id: u64) {
         pledge_entry.status = PledgeStatus::Refunded;
         env.storage()
             .persistent()
-            .set(&DataKey::Pledge(pledge_id), &pledge_entry);
+            .set(&CampaignKey::Pledge(pledge_id), &pledge_entry);
 
         let merchant_account = merchant::get_merchant_account(env, campaign.merchant_id);
         let token_client = token::TokenClient::new(env, &pledge_entry.token);
@@ -380,7 +379,7 @@ pub fn batch_refund(env: &Env, campaign_id: u64) {
 pub fn get_pledge(env: &Env, pledge_id: u64) -> Pledge {
     env.storage()
         .persistent()
-        .get(&DataKey::Pledge(pledge_id))
+        .get(&CampaignKey::Pledge(pledge_id))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::InvoiceNotFound))
 }
 
@@ -388,12 +387,16 @@ pub fn get_campaign_pledges(env: &Env, campaign_id: u64) -> Vec<Pledge> {
     let pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignPledges(campaign_id))
+        .get(&CampaignKey::CampaignPledges(campaign_id))
         .unwrap_or_else(|| Vec::new(env));
 
     let mut pledges: Vec<Pledge> = Vec::new(env);
     for pledge_id in pledge_ids.iter() {
-        if let Some(pledge_entry) = env.storage().persistent().get(&DataKey::Pledge(pledge_id)) {
+        if let Some(pledge_entry) = env
+            .storage()
+            .persistent()
+            .get(&CampaignKey::Pledge(pledge_id))
+        {
             pledges.push_back(pledge_entry);
         }
     }
@@ -404,12 +407,16 @@ pub fn get_contributor_pledges(env: &Env, contributor: &Address) -> Vec<Pledge> 
     let pledge_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::ContributorPledges(contributor.clone()))
+        .get(&CampaignKey::ContributorPledges(contributor.clone()))
         .unwrap_or_else(|| Vec::new(env));
 
     let mut pledges: Vec<Pledge> = Vec::new(env);
     for pledge_id in pledge_ids.iter() {
-        if let Some(pledge_entry) = env.storage().persistent().get(&DataKey::Pledge(pledge_id)) {
+        if let Some(pledge_entry) = env
+            .storage()
+            .persistent()
+            .get(&CampaignKey::Pledge(pledge_id))
+        {
             pledges.push_back(pledge_entry);
         }
     }

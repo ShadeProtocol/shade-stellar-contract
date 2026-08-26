@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::shade::{Shade, ShadeClient};
-use crate::types::{DataKey, ProposalStatus, UpgradeProposal};
+use crate::types::{GovKey, ProposalStatus, UpgradeProposal};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{Address, BytesN, Env};
 
@@ -120,7 +120,7 @@ fn test_full_upgrade_flow_passes_and_executes() {
         ctx.env
             .storage()
             .persistent()
-            .get(&DataKey::GovProposal(id))
+            .get(&GovKey::Proposal(id))
             .unwrap()
     });
     assert_eq!(stored.status, ProposalStatus::Executed);

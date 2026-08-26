@@ -1,10 +1,9 @@
-#![cfg(test)]
-
+extern crate std;
 use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::Role;
 use soroban_sdk::testutils::{Address as _, Events as _};
-use soroban_sdk::{token, Address, Env, String, Symbol, TryIntoVal, Val};
+use soroban_sdk::{token, Address, Env, String, Symbol, TryIntoVal};
 
 fn setup() -> (Env, ShadeClient<'static>, Address, Address, Address) {
     let env = Env::default();
@@ -105,16 +104,18 @@ fn invoice_payment_routes_platform_fee_via_abstraction() {
     token_client.mint(&payer, &5_000i128);
 
     client.pay_invoice(&payer, &invoice_id);
+    // `env.events().all()` only holds the most recent invocation's events, so
+    // snapshot them before any further contract calls (balance/getter queries).
+    let events = env.events().all();
 
     let platform = client.get_platform_account();
     assert_eq!(token_client.balance(&merchant_account), 900);
     assert_eq!(token_client.balance(&platform), 100);
 
-    let events = env.events().all();
     let mut found = false;
     for i in 0..events.len() {
         let (_cid, topics, _data) = events.get(i).unwrap();
-        if topics.len() > 0 {
+        if !topics.is_empty() {
             let name: Symbol = topics.get(0).unwrap().try_into_val(&env).unwrap();
             if name == Symbol::new(&env, "platform_fee_routed_event") {
                 found = true;

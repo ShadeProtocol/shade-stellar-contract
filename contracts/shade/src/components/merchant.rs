@@ -90,6 +90,14 @@ pub fn get_merchant_by_address(env: &Env, merchant: &Address) -> Merchant {
     get_merchant(env, merchant_id)
 }
 
+/// Merchant ID for `merchant`, or `None` if the address is not registered.
+/// Use this in read-only paths that must not panic on unknown addresses.
+pub fn find_merchant_id(env: &Env, merchant: &Address) -> Option<u64> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant.clone()))
+}
+
 pub fn get_merchant_id(env: &Env, merchant: &Address) -> u64 {
     env.storage()
         .persistent()

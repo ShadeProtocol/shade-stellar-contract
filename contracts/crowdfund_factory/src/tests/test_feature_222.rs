@@ -357,12 +357,8 @@ fn test_execute_meets_quorum_and_majority_updates_wasm_hash() {
     factory.add_dao_member(&admin, &voter2);
 
     let new_hash = new_wasm_hash(&env, 9);
-    let proposal_id = factory.create_dao_proposal(
-        &admin,
-        &String::from_str(&env, "upgrade"),
-        &new_hash,
-        &100,
-    );
+    let proposal_id =
+        factory.create_dao_proposal(&admin, &String::from_str(&env, "upgrade"), &new_hash, &100);
     // 2 of 3 members vote (66% turnout >= 50% quorum), both in favor.
     factory.cast_dao_vote(&admin, &proposal_id, &true);
     factory.cast_dao_vote(&voter1, &proposal_id, &true);

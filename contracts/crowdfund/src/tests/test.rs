@@ -1,7 +1,7 @@
-use super::*;
+use crate::*;
 use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
 use soroban_sdk::token::StellarAssetClient;
-use soroban_sdk::{vec, Address, Env, Vec};
+use soroban_sdk::{vec, Address, Env};
 
 fn setup() -> (
     Env,
@@ -1103,7 +1103,7 @@ fn test_backer_leaderboard_sorted_and_limited() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #28)")]
+#[should_panic(expected = "Error(Contract, #33)")]
 fn test_backer_leaderboard_rejects_non_organizer() {
     let (env, _contract, client, token, organizer, contributor) = setup();
     let deadline = env.ledger().timestamp() + 86_400;
@@ -1131,7 +1131,7 @@ fn test_snapshot_returns_stats_and_emits_event() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #28)")]
+#[should_panic(expected = "Error(Contract, #33)")]
 fn test_snapshot_rejects_non_organizer() {
     let (env, _contract, client, token, organizer, contributor) = setup();
     let deadline = env.ledger().timestamp() + 86_400;
@@ -1183,7 +1183,7 @@ fn test_first_backer_badge_awarded_and_queryable() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #30)")]
+#[should_panic(expected = "Error(Contract, #35)")]
 fn test_first_backer_badge_rejects_non_first() {
     let (env, client, token, organizer, contributor) = setup_funded_campaign(100_000);
     let c2 = Address::generate(&env);
@@ -1198,7 +1198,7 @@ fn test_first_backer_badge_rejects_non_first() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #29)")]
+#[should_panic(expected = "Error(Contract, #34)")]
 fn test_badge_cannot_be_awarded_twice() {
     let (env, client, token, _organizer, contributor) = setup_funded_campaign(100_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &1_000);
@@ -1210,7 +1210,7 @@ fn test_badge_cannot_be_awarded_twice() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #28)")]
+#[should_panic(expected = "Error(Contract, #33)")]
 fn test_award_badge_rejects_third_party() {
     let (env, client, token, _organizer, contributor) = setup_funded_campaign(100_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &1_000);
@@ -1233,7 +1233,7 @@ fn test_organizer_can_award_on_behalf_of_backer() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #30)")]
+#[should_panic(expected = "Error(Contract, #35)")]
 fn test_non_backer_is_ineligible() {
     let (env, client, token, organizer, contributor) = setup_funded_campaign(100_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &1_000);
@@ -1256,7 +1256,7 @@ fn test_whale_badge_requires_threshold() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #30)")]
+#[should_panic(expected = "Error(Contract, #35)")]
 fn test_whale_badge_rejects_below_threshold() {
     let (env, client, token, organizer, contributor) = setup_funded_campaign(100_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &1_000);
@@ -1267,7 +1267,7 @@ fn test_whale_badge_rejects_below_threshold() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #31)")]
+#[should_panic(expected = "Error(Contract, #36)")]
 fn test_whale_badge_requires_config() {
     let (env, client, token, _organizer, contributor) = setup_funded_campaign(100_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &5_000);
@@ -1297,7 +1297,7 @@ fn test_early_backer_badge_respects_limit() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #30)")]
+#[should_panic(expected = "Error(Contract, #35)")]
 fn test_early_backer_badge_rejects_late_backer() {
     let (env, client, token, organizer, contributor) = setup_funded_campaign(1_000_000);
     let c2 = Address::generate(&env);
@@ -1323,7 +1323,7 @@ fn test_goal_getter_badge_after_goal_reached() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #30)")]
+#[should_panic(expected = "Error(Contract, #35)")]
 fn test_goal_getter_badge_before_goal_reached() {
     let (env, client, token, _organizer, contributor) = setup_funded_campaign(10_000);
     StellarAssetClient::new(&env, &token).mint(&contributor, &1_000);
@@ -1334,7 +1334,7 @@ fn test_goal_getter_badge_before_goal_reached() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #28)")]
+#[should_panic(expected = "Error(Contract, #33)")]
 fn test_set_badge_config_rejects_non_organizer() {
     let (env, client, _token, _organizer, _contributor) = setup_funded_campaign(10_000);
     let stranger = Address::generate(&env);

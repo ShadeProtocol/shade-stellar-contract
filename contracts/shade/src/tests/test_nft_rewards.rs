@@ -1,17 +1,20 @@
-﻿#![cfg(test)]
+#![cfg(test)]
 
-use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};
 use crate::shade::Shade;
-use crate::interface::ShadeTrait;
+use soroban_sdk::{testutils::Address as _, Address, Env, String, Vec};
 
 fn setup() -> (Env, Address, Address) {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register_contract(None, Shade);
+    let contract_id = env.register(Shade, ());
     let admin = Address::generate(&env);
     let client = crate::shade::ShadeClient::new(&env, &contract_id);
     client.initialize(&admin);
-    client.add_accepted_token(&admin, &Address::generate(&env));
+    let token_admin = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(token_admin)
+        .address();
+    client.add_accepted_token(&admin, &token);
     // Register a merchant
     let merchant = Address::generate(&env);
     client.register_merchant(&merchant);

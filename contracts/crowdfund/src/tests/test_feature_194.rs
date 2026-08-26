@@ -3,7 +3,14 @@ use soroban_sdk::testutils::{Address as _, Events as _, Ledger as _};
 use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::{Address, Env, String, Symbol, TryIntoVal};
 
-fn setup_env() -> (Env, Address, CrowdfundContractClient<'static>, Address, Address, Address) {
+fn setup_env() -> (
+    Env,
+    Address,
+    CrowdfundContractClient<'static>,
+    Address,
+    Address,
+    Address,
+) {
     let env = Env::default();
     env.mock_all_auths();
     env.ledger().with_mut(|l| l.timestamp = 1_000_000);
@@ -34,9 +41,18 @@ fn init_campaign(
 fn tiers(env: &Env) -> soroban_sdk::Vec<RewardTier> {
     soroban_sdk::vec![
         env,
-        RewardTier { min_pledge: 200, name: String::from_str(env, "Silver") },
-        RewardTier { min_pledge: 1_000, name: String::from_str(env, "Gold") },
-        RewardTier { min_pledge: 5_000, name: String::from_str(env, "Platinum") },
+        RewardTier {
+            min_pledge: 200,
+            name: String::from_str(env, "Silver")
+        },
+        RewardTier {
+            min_pledge: 1_000,
+            name: String::from_str(env, "Gold")
+        },
+        RewardTier {
+            min_pledge: 5_000,
+            name: String::from_str(env, "Platinum")
+        },
     ]
 }
 
@@ -71,8 +87,14 @@ fn test_set_reward_tiers_non_ascending_panics() {
 
     let bad_tiers = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 5_000, name: String::from_str(&env, "High") },
-        RewardTier { min_pledge: 200, name: String::from_str(&env, "Low") },
+        RewardTier {
+            min_pledge: 5_000,
+            name: String::from_str(&env, "High")
+        },
+        RewardTier {
+            min_pledge: 200,
+            name: String::from_str(&env, "Low")
+        },
     ];
     client.set_reward_tiers(&bad_tiers);
 }
@@ -85,8 +107,14 @@ fn test_set_reward_tiers_duplicate_min_pledge_panics() {
 
     let dup_tiers = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 200, name: String::from_str(&env, "Silver") },
-        RewardTier { min_pledge: 200, name: String::from_str(&env, "Also Silver") },
+        RewardTier {
+            min_pledge: 200,
+            name: String::from_str(&env, "Silver")
+        },
+        RewardTier {
+            min_pledge: 200,
+            name: String::from_str(&env, "Also Silver")
+        },
     ];
     client.set_reward_tiers(&dup_tiers);
 }
@@ -98,7 +126,10 @@ fn test_set_reward_tiers_single_tier() {
 
     let single = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 100, name: String::from_str(&env, "Basic") },
+        RewardTier {
+            min_pledge: 100,
+            name: String::from_str(&env, "Basic")
+        },
     ];
     client.set_reward_tiers(&single);
 
@@ -129,7 +160,10 @@ fn test_set_reward_tiers_overwrites_previous() {
 
     let first = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 100, name: String::from_str(&env, "Basic") },
+        RewardTier {
+            min_pledge: 100,
+            name: String::from_str(&env, "Basic")
+        },
     ];
     client.set_reward_tiers(&first);
 
@@ -384,12 +418,17 @@ fn test_non_organizer_cannot_set_reward_tiers() {
     let contract = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(&env, &contract);
     let org = Address::generate(&env);
-    let tok = env.register_stellar_asset_contract_v2(org.clone()).address();
+    let tok = env
+        .register_stellar_asset_contract_v2(org.clone())
+        .address();
     let _non_organizer = Address::generate(&env);
     client.init_campaign(&org, &tok, &1_000, &(env.ledger().timestamp() + 1_000));
     client.set_reward_tiers(&soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 100, name: String::from_str(&env, "Basic") },
+        RewardTier {
+            min_pledge: 100,
+            name: String::from_str(&env, "Basic")
+        },
     ]);
 }
 
@@ -401,7 +440,9 @@ fn test_non_organizer_cannot_fulfill_reward() {
     let contract = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(&env, &contract);
     let org = Address::generate(&env);
-    let tok = env.register_stellar_asset_contract_v2(org.clone()).address();
+    let tok = env
+        .register_stellar_asset_contract_v2(org.clone())
+        .address();
     client.init_campaign(&org, &tok, &1_000, &(env.ledger().timestamp() + 1_000));
     let _non_organizer = Address::generate(&env);
     client.fulfill_reward(&_non_organizer);
@@ -415,13 +456,18 @@ fn test_different_contributor_cannot_select_tier_for_other() {
     let contract = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(&env, &contract);
     let org = Address::generate(&env);
-    let tok = env.register_stellar_asset_contract_v2(org.clone()).address();
+    let tok = env
+        .register_stellar_asset_contract_v2(org.clone())
+        .address();
     client.init_campaign(&org, &tok, &1_000, &(env.ledger().timestamp() + 1_000));
     let contributor = Address::generate(&env);
     let attacker = Address::generate(&env);
     client.set_reward_tiers(&soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 100, name: String::from_str(&env, "Basic") },
+        RewardTier {
+            min_pledge: 100,
+            name: String::from_str(&env, "Basic")
+        },
     ]);
     let sac = soroban_sdk::token::StellarAssetClient::new(&env, &tok);
     sac.mint(&contributor, &500);
@@ -480,8 +526,14 @@ fn test_storage_unaffected_when_set_reward_tiers_fails() {
 
     let bad_tiers = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 5_000, name: String::from_str(&env, "High") },
-        RewardTier { min_pledge: 200, name: String::from_str(&env, "Low") },
+        RewardTier {
+            min_pledge: 5_000,
+            name: String::from_str(&env, "High")
+        },
+        RewardTier {
+            min_pledge: 200,
+            name: String::from_str(&env, "Low")
+        },
     ];
     let result = client.try_set_reward_tiers(&bad_tiers);
     assert!(result.is_err());
@@ -557,7 +609,10 @@ fn test_select_lowest_tier_minimum_pledge_works() {
 
     let min_tier = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 1, name: String::from_str(&env, "Minimal") },
+        RewardTier {
+            min_pledge: 1,
+            name: String::from_str(&env, "Minimal")
+        },
     ];
     client.set_reward_tiers(&min_tier);
 
@@ -574,7 +629,10 @@ fn test_select_highest_tier_works_with_large_pledge() {
 
     let whale_tier = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 1_000, name: String::from_str(&env, "Whale") },
+        RewardTier {
+            min_pledge: 1_000,
+            name: String::from_str(&env, "Whale")
+        },
     ];
     client.set_reward_tiers(&whale_tier);
 
@@ -592,7 +650,10 @@ fn test_set_reward_tiers_single_tier_exact_minimum_works() {
 
     let tiers = soroban_sdk::vec![
         &env,
-        RewardTier { min_pledge: 100, name: String::from_str(&env, "Supporter") },
+        RewardTier {
+            min_pledge: 100,
+            name: String::from_str(&env, "Supporter")
+        },
     ];
     client.set_reward_tiers(&tiers);
 

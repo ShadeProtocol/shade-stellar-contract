@@ -3,7 +3,7 @@ use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
 use crate::{
     errors::ContractError,
     events,
-    types::{CrossChainPledge, CrossChainPledgeStatus, DataKey},
+    types::{BridgeKey, CrossChainPledge, CrossChainPledgeStatus},
 };
 
 pub fn create_pledge(
@@ -39,21 +39,18 @@ pub fn create_pledge(
 
     env.storage()
         .persistent()
-        .set(&DataKey::CrossChainPledge(pledge_id), &pledge);
-    env.storage()
-        .persistent()
-        .set(&DataKey::PledgeIdBySourceChain(source_chain, source_pledge_id), &pledge_id);
+        .set(&BridgeKey::CrossChainPledge(pledge_id), &pledge);
+    env.storage().persistent().set(
+        &BridgeKey::PledgeIdBySourceChain(source_chain, source_pledge_id),
+        &pledge_id,
+    );
 
     events::publish_cross_chain_pledge_created(env, &pledge);
 
     pledge_id
 }
 
-pub fn update_pledge_status(
-    env: &Env,
-    pledge_id: u64,
-    new_status: CrossChainPledgeStatus,
-) {
+pub fn update_pledge_status(env: &Env, pledge_id: u64, new_status: CrossChainPledgeStatus) {
     let admin = crate::components::core::get_admin(env);
     admin.require_auth();
 
@@ -63,7 +60,7 @@ pub fn update_pledge_status(
 
     env.storage()
         .persistent()
-        .set(&DataKey::CrossChainPledge(pledge_id), &pledge);
+        .set(&BridgeKey::CrossChainPledge(pledge_id), &pledge);
 
     events::publish_cross_chain_pledge_updated(env, &pledge);
 }
@@ -71,7 +68,7 @@ pub fn update_pledge_status(
 pub fn get_pledge(env: &Env, pledge_id: u64) -> CrossChainPledge {
     env.storage()
         .persistent()
-        .get(&DataKey::CrossChainPledge(pledge_id))
+        .get(&BridgeKey::CrossChainPledge(pledge_id))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::NotFound))
 }
 
@@ -83,7 +80,10 @@ pub fn get_pledge_by_source(
     let pledge_id: u64 = env
         .storage()
         .persistent()
-        .get(&DataKey::PledgeIdBySourceChain(source_chain, source_pledge_id))
+        .get(&BridgeKey::PledgeIdBySourceChain(
+            source_chain,
+            source_pledge_id,
+        ))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::NotFound));
     get_pledge(env, pledge_id)
 }
@@ -92,11 +92,11 @@ fn get_next_pledge_id(env: &Env) -> u64 {
     let count: u64 = env
         .storage()
         .persistent()
-        .get(&DataKey::CrossChainPledgeCount)
+        .get(&BridgeKey::CrossChainPledgeCount)
         .unwrap_or(0);
     env.storage()
         .persistent()
-        .set(&DataKey::CrossChainPledgeCount, &(count + 1));
+        .set(&BridgeKey::CrossChainPledgeCount, &(count + 1));
     count
 }
 
@@ -104,7 +104,7 @@ pub fn get_all_pledges(env: &Env) -> Vec<CrossChainPledge> {
     let count: u64 = env
         .storage()
         .persistent()
-        .get(&DataKey::CrossChainPledgeCount)
+        .get(&BridgeKey::CrossChainPledgeCount)
         .unwrap_or(0);
     let mut pledges = Vec::new(env);
     for i in 0..count {

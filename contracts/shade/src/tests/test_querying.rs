@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::shade::{Shade, ShadeClient};
 use crate::types::{InvoiceFilter, InvoiceStatus, MerchantFilter};
 use soroban_sdk::testutils::Address as _;

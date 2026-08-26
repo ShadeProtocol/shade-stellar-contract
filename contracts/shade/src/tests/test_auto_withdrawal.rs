@@ -3,7 +3,7 @@
 use crate::shade::{Shade, ShadeClient};
 use crate::types::InvoiceStatus;
 use account::account::{MerchantAccount, MerchantAccountClient};
-use soroban_sdk::testutils::{Address as _, Events as _};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{token, Address, Env, String};
 
 fn setup_test_with_auto_withdrawal() -> (
@@ -61,7 +61,7 @@ fn setup_test_with_auto_withdrawal() -> (
 
 #[test]
 fn test_set_auto_withdrawal_threshold() {
-    let (env, shade_client, _shade_contract_id, _admin, merchant, token) =
+    let (_env, shade_client, _shade_contract_id, _admin, merchant, token) =
         setup_test_with_auto_withdrawal();
 
     let threshold = 10_000i128;
@@ -76,7 +76,7 @@ fn test_set_auto_withdrawal_threshold() {
 
 #[test]
 fn test_set_auto_withdrawal_threshold_zero_disables() {
-    let (env, shade_client, _shade_contract_id, _admin, merchant, token) =
+    let (_env, shade_client, _shade_contract_id, _admin, merchant, token) =
         setup_test_with_auto_withdrawal();
 
     // Set threshold to 10_000
@@ -229,7 +229,7 @@ fn test_auto_withdrawal_uses_merchant_address_as_default_recipient() {
 #[test]
 #[should_panic(expected = "HostError: Error(Contract, #")]
 fn test_set_auto_withdrawal_threshold_negative_amount_fails() {
-    let (env, shade_client, _shade_contract_id, _admin, merchant, token) =
+    let (_env, shade_client, _shade_contract_id, _admin, merchant, token) =
         setup_test_with_auto_withdrawal();
 
     // Try to set negative threshold - should panic

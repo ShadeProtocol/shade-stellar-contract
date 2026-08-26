@@ -156,7 +156,7 @@ fn test_credit_accumulates_across_deposits() {
 
 /// The same origin-chain tx hash can never be credited twice (#55).
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #55)")]
+#[should_panic(expected = "HostError: Error(Contract, #49)")]
 fn test_replay_is_rejected() {
     let ctx = setup();
     let listener = Address::generate(&ctx.env);

@@ -1,6 +1,6 @@
-use crate::errors::ContractError;
+use crate::errors::{CampaignError, ContractError};
 use crate::events::publish_leaderboard_updated_event;
-use crate::types::{DataKey, DonorInfo};
+use crate::types::{CampaignKey, DataKey, DonorInfo};
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 const MAX_TOP_DONORS: u32 = 10;
@@ -9,19 +9,25 @@ pub fn init_campaign(env: &Env, merchant: Address, campaign_id: u64) {
     merchant.require_auth();
 
     // Verify merchant is actually registered
-    if !env.storage().persistent().has(&DataKey::MerchantId(merchant.clone())) {
+    if !env
+        .storage()
+        .persistent()
+        .has(&DataKey::MerchantId(merchant.clone()))
+    {
         panic_with_error!(env, ContractError::MerchantNotFound);
     }
 
-    let owner_key = DataKey::CampaignOwner(campaign_id);
+    let owner_key = CampaignKey::CampaignOwner(campaign_id);
     if env.storage().persistent().has(&owner_key) {
         panic_with_error!(env, ContractError::AlreadyInitialized);
     }
 
     env.storage().persistent().set(&owner_key, &merchant);
-    
+
     let top_donors: Vec<DonorInfo> = Vec::new(env);
-    env.storage().persistent().set(&DataKey::CampaignTopDonors(campaign_id), &top_donors);
+    env.storage()
+        .persistent()
+        .set(&CampaignKey::CampaignTopDonors(campaign_id), &top_donors);
 }
 
 pub fn track_donation(
@@ -33,10 +39,14 @@ pub fn track_donation(
 ) {
     merchant.require_auth();
 
-    let owner_key = DataKey::CampaignOwner(campaign_id);
-    let owner: Address = env.storage().persistent().get(&owner_key).unwrap_or_else(|| {
-        panic_with_error!(env, ContractError::CampaignNotFound);
-    });
+    let owner_key = CampaignKey::CampaignOwner(campaign_id);
+    let owner: Address = env
+        .storage()
+        .persistent()
+        .get(&owner_key)
+        .unwrap_or_else(|| {
+            panic_with_error!(env, CampaignError::CampaignNotFound);
+        });
 
     if owner != merchant {
         panic_with_error!(env, ContractError::NotAuthorized);
@@ -46,7 +56,7 @@ pub fn track_donation(
         panic_with_error!(env, ContractError::InvalidAmount);
     }
 
-    let amount_key = DataKey::CampaignDonorAmount(campaign_id, donor.clone());
+    let amount_key = CampaignKey::CampaignDonorAmount(campaign_id, donor.clone());
     let mut current_total: i128 = env.storage().persistent().get(&amount_key).unwrap_or(0);
     current_total += amount;
 
@@ -55,19 +65,31 @@ pub fn track_donation(
     // Update top donors leaderboard
     update_top_donors(env, campaign_id, donor.clone(), current_total);
 
-    publish_leaderboard_updated_event(env, campaign_id, donor, amount, current_total, env.ledger().timestamp());
+    publish_leaderboard_updated_event(
+        env,
+        campaign_id,
+        donor,
+        amount,
+        current_total,
+        env.ledger().timestamp(),
+    );
 }
 
 pub fn get_top_donors(env: &Env, campaign_id: u64) -> Vec<DonorInfo> {
-    let top_key = DataKey::CampaignTopDonors(campaign_id);
-    env.storage().persistent().get(&top_key).unwrap_or_else(|| {
-        Vec::new(env)
-    })
+    let top_key = CampaignKey::CampaignTopDonors(campaign_id);
+    env.storage()
+        .persistent()
+        .get(&top_key)
+        .unwrap_or_else(|| Vec::new(env))
 }
 
 fn update_top_donors(env: &Env, campaign_id: u64, donor: Address, new_total: i128) {
-    let top_key = DataKey::CampaignTopDonors(campaign_id);
-    let mut top_donors: Vec<DonorInfo> = env.storage().persistent().get(&top_key).unwrap_or_else(|| Vec::new(env));
+    let top_key = CampaignKey::CampaignTopDonors(campaign_id);
+    let mut top_donors: Vec<DonorInfo> = env
+        .storage()
+        .persistent()
+        .get(&top_key)
+        .unwrap_or_else(|| Vec::new(env));
 
     // Remove the donor if they are already in the list
     let mut index_to_remove = None;
@@ -91,7 +113,13 @@ fn update_top_donors(env: &Env, campaign_id: u64, donor: Address, new_total: i12
         }
     }
 
-    top_donors.insert(insert_index, DonorInfo { donor, total_donated: new_total });
+    top_donors.insert(
+        insert_index,
+        DonorInfo {
+            donor,
+            total_donated: new_total,
+        },
+    );
 
     // Truncate
     if top_donors.len() > MAX_TOP_DONORS {

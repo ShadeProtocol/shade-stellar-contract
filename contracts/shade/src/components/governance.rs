@@ -21,7 +21,7 @@
 use crate::components::core;
 use crate::errors::GovernanceError;
 use crate::events;
-use crate::types::{DataKey, GovState, ProposalStatus, UpgradeProposal};
+use crate::types::{GovKey, GovState, ProposalStatus, UpgradeProposal};
 use soroban_sdk::{panic_with_error, Address, BytesN, Env};
 
 const MAX_QUORUM_BPS: u32 = 10_000;
@@ -29,7 +29,7 @@ const MAX_QUORUM_BPS: u32 = 10_000;
 fn load_state(env: &Env) -> GovState {
     env.storage()
         .persistent()
-        .get(&DataKey::GovState)
+        .get(&GovKey::State)
         .unwrap_or(GovState {
             voting_period: 0,
             quorum_bps: 0,
@@ -39,13 +39,13 @@ fn load_state(env: &Env) -> GovState {
 }
 
 fn save_state(env: &Env, state: &GovState) {
-    env.storage().persistent().set(&DataKey::GovState, state);
+    env.storage().persistent().set(&GovKey::State, state);
 }
 
 pub fn is_gov_member(env: &Env, member: &Address) -> bool {
     env.storage()
         .persistent()
-        .has(&DataKey::GovMember(member.clone()))
+        .has(&GovKey::Member(member.clone()))
 }
 
 pub fn get_gov_member_count(env: &Env) -> u32 {
@@ -60,7 +60,7 @@ pub fn add_gov_member(env: &Env, admin: &Address, member: &Address) {
     }
     env.storage()
         .persistent()
-        .set(&DataKey::GovMember(member.clone()), &true);
+        .set(&GovKey::Member(member.clone()), &true);
     let mut state = load_state(env);
     state.member_count = state.member_count.saturating_add(1);
     save_state(env, &state);
@@ -81,7 +81,7 @@ pub fn remove_gov_member(env: &Env, admin: &Address, member: &Address) {
     }
     env.storage()
         .persistent()
-        .remove(&DataKey::GovMember(member.clone()));
+        .remove(&GovKey::Member(member.clone()));
     let mut state = load_state(env);
     state.member_count = state.member_count.saturating_sub(1);
     save_state(env, &state);
@@ -147,7 +147,7 @@ pub fn propose_upgrade(env: &Env, proposer: &Address, wasm_hash: BytesN<32>) -> 
     };
     env.storage()
         .persistent()
-        .set(&DataKey::GovProposal(id), &proposal);
+        .set(&GovKey::Proposal(id), &proposal);
 
     events::publish_upgrade_proposed_event(
         env,
@@ -163,19 +163,19 @@ pub fn propose_upgrade(env: &Env, proposer: &Address, wasm_hash: BytesN<32>) -> 
 pub fn get_upgrade_proposal(env: &Env, proposal_id: u64) -> Option<UpgradeProposal> {
     env.storage()
         .persistent()
-        .get(&DataKey::GovProposal(proposal_id))
+        .get(&GovKey::Proposal(proposal_id))
 }
 
 pub fn has_voted(env: &Env, proposal_id: u64, member: &Address) -> bool {
     env.storage()
         .persistent()
-        .has(&DataKey::GovVote(proposal_id, member.clone()))
+        .has(&GovKey::Vote(proposal_id, member.clone()))
 }
 
 fn load_proposal(env: &Env, proposal_id: u64) -> UpgradeProposal {
     env.storage()
         .persistent()
-        .get(&DataKey::GovProposal(proposal_id))
+        .get(&GovKey::Proposal(proposal_id))
         .unwrap_or_else(|| panic_with_error!(env, GovernanceError::ProposalNotFound))
 }
 
@@ -196,7 +196,7 @@ pub fn vote_on_upgrade(env: &Env, voter: &Address, proposal_id: u64, approve: bo
 
     env.storage()
         .persistent()
-        .set(&DataKey::GovVote(proposal_id, voter.clone()), &approve);
+        .set(&GovKey::Vote(proposal_id, voter.clone()), &approve);
     if approve {
         proposal.approvals = proposal.approvals.saturating_add(1);
     } else {
@@ -204,7 +204,7 @@ pub fn vote_on_upgrade(env: &Env, voter: &Address, proposal_id: u64, approve: bo
     }
     env.storage()
         .persistent()
-        .set(&DataKey::GovProposal(proposal_id), &proposal);
+        .set(&GovKey::Proposal(proposal_id), &proposal);
 
     events::publish_upgrade_vote_cast_event(
         env,
@@ -255,7 +255,7 @@ pub fn finalize_upgrade(env: &Env, caller: &Address, proposal_id: u64) {
     };
     env.storage()
         .persistent()
-        .set(&DataKey::GovProposal(proposal_id), &proposal);
+        .set(&GovKey::Proposal(proposal_id), &proposal);
 
     if approved {
         env.deployer()

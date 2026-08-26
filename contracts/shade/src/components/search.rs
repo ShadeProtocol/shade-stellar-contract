@@ -10,9 +10,9 @@
 
 use crate::events;
 use crate::types::{
-    DataKey, Event, EventFilter, Invoice, InvoicePage, InvoiceFilter, Merchant, MerchantPage,
-    MerchantFilter, PageInfo, Subscription, SubscriptionFilter, SubscriptionPlan,
-    SubscriptionPlanFilter, WithdrawalProposal, WithdrawalProposalFilter,
+    DataKey, Event, EventFilter, EventKey, Invoice, InvoiceFilter, InvoicePage, Merchant,
+    MerchantFilter, MerchantPage, MultiSigKey, PageInfo, Subscription, SubscriptionFilter,
+    SubscriptionPlan, SubscriptionPlanFilter, WithdrawalProposal, WithdrawalProposalFilter,
 };
 use soroban_sdk::{Address, Env, Vec};
 
@@ -285,10 +285,7 @@ pub fn search_subscription_plans(
 // ── Subscription search ───────────────────────────────────────────────────────
 
 /// Return all subscriptions matching `filter`.
-pub fn search_subscriptions(
-    env: &Env,
-    filter: SubscriptionFilter,
-) -> Vec<Subscription> {
+pub fn search_subscriptions(env: &Env, filter: SubscriptionFilter) -> Vec<Subscription> {
     let sub_count: u64 = env
         .storage()
         .persistent()
@@ -336,15 +333,11 @@ pub fn search_subscriptions(
 // ── Event (ticketing) search ──────────────────────────────────────────────────
 
 /// Return all on-chain events matching `filter`.
-pub fn search_events(
-    env: &Env,
-    caller: &Address,
-    filter: EventFilter,
-) -> Vec<Event> {
+pub fn search_events(env: &Env, caller: &Address, filter: EventFilter) -> Vec<Event> {
     let event_count: u64 = env
         .storage()
         .persistent()
-        .get(&DataKey::EventCount)
+        .get(&EventKey::EventCount)
         .unwrap_or(0);
 
     let mut results: Vec<Event> = Vec::new(env);
@@ -359,7 +352,7 @@ pub fn search_events(
         if let Some(evt) = env
             .storage()
             .persistent()
-            .get::<_, Event>(&DataKey::Event(i))
+            .get::<_, Event>(&EventKey::Event(i))
         {
             let mut ok = true;
             if let Some(mid) = merchant_id_opt {
@@ -424,7 +417,7 @@ pub fn search_withdrawal_proposals(
     let proposal_count: u64 = env
         .storage()
         .persistent()
-        .get(&DataKey::WithdrawalProposalCount)
+        .get(&MultiSigKey::WithdrawalProposalCount)
         .unwrap_or(0);
 
     let mut results: Vec<WithdrawalProposal> = Vec::new(env);
@@ -433,7 +426,7 @@ pub fn search_withdrawal_proposals(
         if let Some(p) = env
             .storage()
             .persistent()
-            .get::<_, WithdrawalProposal>(&DataKey::WithdrawalProposal(i))
+            .get::<_, WithdrawalProposal>(&MultiSigKey::WithdrawalProposal(i))
         {
             let mut ok = true;
             if let Some(ref merchant) = filter.merchant {

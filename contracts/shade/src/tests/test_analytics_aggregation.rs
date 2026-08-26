@@ -1,13 +1,9 @@
 #![cfg(test)]
 extern crate std;
 
-extern crate std;
-use std::{vec, format};
-
 use crate::shade::{Shade, ShadeClient};
-use crate::types::{MerchantAnalytics, MerchantAnalyticsSummary, TokenAnalytics};
 use account::account::{MerchantAccount, MerchantAccountClient};
-use soroban_sdk::testutils::{Address as _, Ledger, LedgerInfo};
+use soroban_sdk::testutils::{Address as _, Ledger};
 use soroban_sdk::{Address, Env, String};
 
 const DAY_IN_SECONDS: u64 = 86400;
@@ -565,7 +561,7 @@ fn test_analytics_timestamp_accuracy() {
     // Set specific timestamps for testing
     let timestamps = [1000000u64, 1001000u64, 1002000u64];
 
-    for (i, &timestamp) in timestamps.iter().enumerate() {
+    for &timestamp in timestamps.iter() {
         env.ledger().with_mut(|li| {
             li.timestamp = timestamp;
         });
@@ -613,7 +609,7 @@ fn test_zero_amount_payments_analytics() {
 #[test]
 fn test_analytics_with_subscription_payments() {
     let env = Env::default();
-    let (_admin, client, token1, _token2, merchant, merchant_account) = setup(&env);
+    let (_admin, client, token1, _token2, merchant, _merchant_account) = setup(&env);
     let customer = Address::generate(&env);
     fund_payer(&env, &token1, &customer, 1_000_000);
     // Subscription charges pull funds via `transfer_from`, so the customer must
@@ -676,7 +672,7 @@ fn test_analytics_aggregation_performance() {
     let num_transactions = 50;
     let amount_per_transaction = 100i128;
 
-    for i in 0..num_transactions {
+    for _i in 0..num_transactions {
         let inv = client.create_invoice(
             &merchant,
             &String::from_str(&env, "perf_test"),
@@ -779,7 +775,6 @@ fn test_analytics_merchant_volume_discount_integration() {
     // Track volume and fee changes as discounts kick in
     let payment_amounts = [5000i128, 6000, 40000, 10000]; // Will trigger different discount tiers
     let mut expected_volume = 0i128;
-    let mut expected_fees = 0i128;
 
     for (i, &amount) in payment_amounts.iter().enumerate() {
         let inv = client.create_invoice(
@@ -793,10 +788,11 @@ fn test_analytics_merchant_volume_discount_integration() {
 
         expected_volume += amount;
 
-        // Calculate expected fee based on volume discount tiers
-        let current_volume = client.get_merchant_volume(&merchant, &token1);
+        // The quoted fee must stay within sane bounds as discount tiers kick in.
+        // It is not compared against the analytics total: the discount that
+        // applies to a payment depends on the volume recorded before it.
         let calculated_fee = client.calculate_fee(&merchant, &token1, &amount);
-        expected_fees += calculated_fee;
+        assert!(calculated_fee >= 0 && calculated_fee < amount);
 
         let analytics = client.get_merchant_analytics(&merchant, &token1);
         assert_eq!(analytics.total_volume, expected_volume);

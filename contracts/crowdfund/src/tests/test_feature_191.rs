@@ -56,24 +56,16 @@ fn advance_past_deadline(env: &Env, deadline: u64) {
     env.ledger().with_mut(|l| l.timestamp = deadline + 1);
 }
 
-fn mint_and_contribute(
-    fixture: &RefundFixture,
-    contributor: &Address,
-    amount: i128,
-) {
+fn mint_and_contribute(fixture: &RefundFixture, contributor: &Address, amount: i128) {
     StellarAssetClient::new(&fixture.env, &fixture.token).mint(contributor, &amount);
     fixture.client.contribute(contributor, &amount);
 }
 
-fn find_event_data(
-    env: &Env,
-    contract: &Address,
-    event_name: &str,
-) -> Map<Symbol, Val> {
+fn find_event_data(env: &Env, contract: &Address, event_name: &str) -> Map<Symbol, Val> {
     let events = env.events().all();
     for i in 0..events.len() {
         let (event_contract, topics, data) = events.get(i).unwrap();
-        if event_contract != *contract || topics.len() == 0 {
+        if event_contract != *contract || topics.is_empty() {
             continue;
         }
         let name: Symbol = topics.get(0).unwrap().try_into_val(env).unwrap();
@@ -137,10 +129,12 @@ fn test_claim_refund_happy_path_transfers_and_zeros_pledge() {
     let token_client = StellarAssetClient::new(&f.env, &f.token);
     let before = token_client.balance(&contributor);
     f.client.claim_refund(&contributor);
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
+    assert_refund_claimed_event(&f.env, &f.contract, &contributor, 2_500);
 
     assert_eq!(token_client.balance(&contributor) - before, 2_500);
     assert_eq!(f.client.pledge_of(&contributor), 0);
-    assert_refund_claimed_event(&f.env, &f.contract, &contributor, 2_500);
 }
 
 #[test]
@@ -156,12 +150,14 @@ fn test_batch_refund_happy_path_refunds_all_contributors() {
     let before2 = token_client.balance(&contributor2);
 
     f.client.batch_refund();
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
+    assert_batch_refund_processed_event(&f.env, &f.contract, 5_000, 2);
 
     assert_eq!(token_client.balance(&contributor1) - before1, 3_000);
     assert_eq!(token_client.balance(&contributor2) - before2, 2_000);
     assert_eq!(f.client.pledge_of(&contributor1), 0);
     assert_eq!(f.client.pledge_of(&contributor2), 0);
-    assert_batch_refund_processed_event(&f.env, &f.contract, 5_000, 2);
 }
 
 #[test]
@@ -358,9 +354,11 @@ fn test_mixed_individual_then_batch_refunds_remaining_contributors() {
 
     let before2 = token_client.balance(&contributor2);
     f.client.batch_refund();
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
+    assert_batch_refund_processed_event(&f.env, &f.contract, 3_000, 2);
     assert_eq!(token_client.balance(&contributor2) - before2, 3_000);
     assert_eq!(f.client.pledge_of(&contributor2), 0);
-    assert_batch_refund_processed_event(&f.env, &f.contract, 3_000, 2);
 }
 
 #[test]
@@ -377,8 +375,10 @@ fn test_batch_refund_skips_zero_pledge_contributors_in_total() {
     let token_client = StellarAssetClient::new(&f.env, &f.token);
     let before1 = token_client.balance(&contributor1);
     f.client.batch_refund();
-    assert_eq!(token_client.balance(&contributor1) - before1, 1_000);
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
     assert_batch_refund_processed_event(&f.env, &f.contract, 1_000, 2);
+    assert_eq!(token_client.balance(&contributor1) - before1, 1_000);
 }
 
 #[test]
@@ -386,8 +386,8 @@ fn test_batch_refund_with_matching_pool_pledge_amounts() {
     let (f, contributor, deadline) = setup_failed_campaign(10_000, 100);
     let sponsor = Address::generate(&f.env);
     let token_client = StellarAssetClient::new(&f.env, &f.token);
-    token_client.mint(&sponsor, 300);
-    token_client.mint(&contributor, 500);
+    token_client.mint(&sponsor, &300);
+    token_client.mint(&contributor, &500);
     f.client.fund_matching_pool(&sponsor, &300);
     f.client.contribute(&contributor, &500);
     // Pledge includes 300 matched: 800 total per contributor accounting.
@@ -396,8 +396,10 @@ fn test_batch_refund_with_matching_pool_pledge_amounts() {
 
     let before = token_client.balance(&contributor);
     f.client.batch_refund();
-    assert_eq!(token_client.balance(&contributor) - before, 800);
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
     assert_batch_refund_processed_event(&f.env, &f.contract, 800, 1);
+    assert_eq!(token_client.balance(&contributor) - before, 800);
 }
 
 #[test]
@@ -406,6 +408,8 @@ fn test_batch_refund_empty_contributor_list_succeeds() {
     advance_past_deadline(&f.env, deadline);
 
     f.client.batch_refund();
+    // `env.events().all()` holds only the most recent invocation's events, so
+    // assert on the refund call before any further balance/pledge queries.
     assert_batch_refund_processed_event(&f.env, &f.contract, 0, 0);
 
     let result = f.client.try_batch_refund();
@@ -419,6 +423,12 @@ fn test_successful_campaign_blocks_both_refund_paths() {
     advance_past_deadline(&f.env, deadline);
 
     assert!(f.client.goal_reached());
-    assert_eq!(f.client.try_claim_refund(&contributor), Err(Ok(contract_error(GOAL_REACHED))));
-    assert_eq!(f.client.try_batch_refund(), Err(Ok(contract_error(GOAL_REACHED))));
+    assert_eq!(
+        f.client.try_claim_refund(&contributor),
+        Err(Ok(contract_error(GOAL_REACHED)))
+    );
+    assert_eq!(
+        f.client.try_batch_refund(),
+        Err(Ok(contract_error(GOAL_REACHED)))
+    );
 }

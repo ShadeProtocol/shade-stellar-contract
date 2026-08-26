@@ -1,7 +1,7 @@
-use crate::components::{core, merchant as merchant_component, reentrancy};
-use crate::errors::ContractError;
+use crate::components::{core, reentrancy};
+use crate::errors::{CampaignError, ContractError};
 use crate::events;
-use crate::types::{Campaign, CampaignAffiliate, CampaignParticipant, CampaignStatus, DataKey};
+use crate::types::{CampaignAffiliate, CampaignKey, CampaignParticipant, FeeCampaign};
 use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
 
 /// Validation bounds for free-form user strings.
@@ -101,6 +101,7 @@ pub fn create_campaign(
     let campaign_id = get_campaign_count(env) + 1;
     let desc = String::from_str(env, "");
     let campaign = Campaign {
+    let campaign = FeeCampaign {
         id: campaign_id,
         merchant_id,
         merchant: caller.clone(),
@@ -132,9 +133,16 @@ pub fn create_campaign(
         .set(&DataKey::StakeableCampaignCount, &campaign_id);
     env.storage()
         .persistent()
-        .set(&DataKey::CampaignParticipants(campaign_id), &Vec::<Address>::new(env));
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
+    env.storage()
+        .persistent()
+        .set(&CampaignKey::FeeCampaignCount, &campaign_id);
+    env.storage().persistent().set(
+        &CampaignKey::CampaignParticipants(campaign_id),
+        &Vec::<Address>::new(env),
+    );
 
-    events::publish_campaign_created_event(
+    events::publish_fee_campaign_created_event(
         env,
         campaign_id,
         caller.clone(),
@@ -179,12 +187,14 @@ pub fn configure_campaign_fee_policy(
     env.storage()
         .persistent()
         .set(&DataKey::StakeableCampaign(campaign_id), &campaign);
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
 
     reentrancy::exit(env);
 }
 
 /// Calculate the discounted amount for a campaign contribution.
 pub fn calculate_campaign_discounted_amount(env: &Env, campaign_id: u64, amount: i128) -> i128 {
+pub fn calculate_campaign_discount(env: &Env, campaign_id: u64, amount: i128) -> i128 {
     if amount <= 0 {
         return 0;
     }
@@ -219,6 +229,7 @@ pub fn stake_campaign(env: &Env, caller: &Address, campaign_id: u64, amount: i12
     env.storage()
         .persistent()
         .set(&DataKey::StakeableCampaign(campaign_id), &campaign);
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
 
     events::publish_campaign_staked_event(
         env,
@@ -259,6 +270,7 @@ pub fn record_campaign_contribution(env: &Env, caller: &Address, campaign_id: u6
     env.storage()
         .persistent()
         .set(&DataKey::StakeableCampaign(campaign_id), &campaign);
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
 
     events::publish_campaign_contribution_event(
         env,
@@ -311,6 +323,7 @@ pub fn slash_campaign_stake(
     env.storage()
         .persistent()
         .set(&DataKey::StakeableCampaign(campaign_id), &campaign);
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
 
     events::publish_campaign_slashed_event(
         env,
@@ -356,7 +369,7 @@ pub fn register_affiliate(
     };
 
     env.storage().persistent().set(
-        &DataKey::CampaignAffiliate(campaign_id, affiliate_address.clone()),
+        &CampaignKey::CampaignAffiliate(campaign_id, affiliate_address.clone()),
         &affiliate,
     );
 
@@ -392,18 +405,24 @@ pub fn pay_affiliate_commission(
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
-    let mut affiliate = env
+    let mut affiliate: CampaignAffiliate = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignAffiliate(campaign_id, affiliate_address.clone()))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::AffiliateNotFound));
+        .get(&CampaignKey::CampaignAffiliate(
+            campaign_id,
+            affiliate_address.clone(),
+        ))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::AffiliateNotFound));
 
     affiliate.total_paid += amount;
 
     env.storage().persistent().set(
-        &DataKey::CampaignAffiliate(campaign_id, affiliate_address.clone()),
+        &CampaignKey::CampaignAffiliate(campaign_id, affiliate_address.clone()),
         &affiliate,
     );
+    env.storage()
+        .persistent()
+        .set(&CampaignKey::FeeCampaign(campaign_id), &campaign);
 
     events::publish_affiliate_commission_paid_event(
         env,
@@ -418,13 +437,41 @@ pub fn pay_affiliate_commission(
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
+pub fn get_campaign(env: &Env, campaign_id: u64) -> FeeCampaign {
+    env.storage()
+        .persistent()
+        .get(&CampaignKey::FeeCampaign(campaign_id))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::CampaignNotFound))
+}
+
+pub fn get_campaign_participant(
+    env: &Env,
+    campaign_id: u64,
+    participant: &Address,
+) -> CampaignParticipant {
+    get_participant(env, campaign_id, participant)
+}
+
+pub fn get_campaign_affiliate(
+    env: &Env,
+    campaign_id: u64,
+    affiliate: &Address,
+) -> CampaignAffiliate {
+    env.storage()
+        .persistent()
+        .get(&CampaignKey::CampaignAffiliate(
+            campaign_id,
+            affiliate.clone(),
+        ))
+        .unwrap_or_else(|| panic_with_error!(env, CampaignError::AffiliateNotFound))
+}
 
 /// Get top participants by score (descending), limited to `limit` entries.
 pub fn get_campaign_leaderboard(env: &Env, campaign_id: u64, limit: u32) -> Vec<(Address, i128)> {
     let participant_ids = env
         .storage()
         .persistent()
-        .get(&DataKey::CampaignParticipants(campaign_id))
+        .get(&CampaignKey::CampaignParticipants(campaign_id))
         .unwrap_or_else(|| Vec::new(env));
 
     let mut rows: Vec<(Address, i128)> = Vec::new(env);
@@ -469,6 +516,26 @@ pub fn get_campaign(env: &Env, campaign_id: u64) -> Campaign {
 
 pub fn get_campaign_participant(env: &Env, campaign_id: u64, participant: &Address) -> CampaignParticipant {
     get_participant(env, campaign_id, participant)
+        .get(&CampaignKey::FeeCampaignCount)
+        .unwrap_or(0)
+}
+
+fn get_participant(env: &Env, campaign_id: u64, participant: &Address) -> CampaignParticipant {
+    env.storage()
+        .persistent()
+        .get(&CampaignKey::CampaignParticipant(
+            campaign_id,
+            participant.clone(),
+        ))
+        .unwrap_or(CampaignParticipant {
+            campaign_id,
+            participant: participant.clone(),
+            contributed: 0,
+            staked: 0,
+            slashed: 0,
+            commissions_paid: 0,
+            score: 0,
+        })
 }
 
 pub fn get_campaign_affiliate(env: &Env, campaign_id: u64, affiliate: &Address) -> CampaignAffiliate {
@@ -476,4 +543,31 @@ pub fn get_campaign_affiliate(env: &Env, campaign_id: u64, affiliate: &Address) 
         .persistent()
         .get(&DataKey::CampaignAffiliate(campaign_id, affiliate.clone()))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::AffiliateNotFound))
+        .get(&CampaignKey::CampaignParticipants(campaign_id))
+        .unwrap_or_else(|| Vec::new(env));
+
+    let mut exists = false;
+    for existing in participant_ids.iter() {
+        if existing == participant.participant {
+            exists = true;
+            break;
+        }
+    }
+
+    if !exists {
+        let mut updated_ids = Vec::new(env);
+        for existing in participant_ids.iter() {
+            updated_ids.push_back(existing);
+        }
+        updated_ids.push_back(participant.participant.clone());
+        env.storage().persistent().set(
+            &CampaignKey::CampaignParticipants(campaign_id),
+            &updated_ids,
+        );
+    }
+
+    env.storage().persistent().set(
+        &CampaignKey::CampaignParticipant(campaign_id, participant.participant.clone()),
+        participant,
+    );
 }

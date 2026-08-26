@@ -75,7 +75,7 @@ fn test_claim_refund_after_expiry_succeeds() {
 // Test 2: claim_refund fails before expiry — EscrowNotExpired (#44)
 // ---------------------------------------------------------------------------
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #55)")]
+#[should_panic(expected = "HostError: Error(Contract, #160)")]
 fn test_claim_refund_before_expiry_fails() {
     let (env, client, buyer, invoice_id, _token, _ma) =
         setup_paid_invoice_with_expiry(1_000, 5_000);
@@ -104,7 +104,7 @@ fn test_claim_refund_non_buyer_fails() {
 // (first claim changes status to Refunded, which is not Paid/PartiallyPaid)
 // ---------------------------------------------------------------------------
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #16)")]
+#[should_panic(expected = "HostError: Error(Contract, #161)")]
 fn test_claim_refund_double_claim_fails() {
     let (env, client, buyer, invoice_id, _token, _ma) =
         setup_paid_invoice_with_expiry(1_000, 5_000);
@@ -163,7 +163,7 @@ fn test_claim_refund_no_expiry_fails() {
 // (invoice.payer is None, so payer check fails first)
 // ---------------------------------------------------------------------------
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #1)")]
+#[should_panic(expected = "HostError: Error(Contract, #16)")]
 fn test_claim_refund_unpaid_invoice_fails() {
     let env = Env::default();
     env.mock_all_auths();

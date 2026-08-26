@@ -120,7 +120,7 @@ fn create_event_rejects_zero_price() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #48)")] // InvalidCapacity
+#[should_panic(expected = "Error(Contract, #122)")] // InvalidCapacity
 fn create_event_rejects_zero_capacity() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -136,7 +136,7 @@ fn create_event_rejects_zero_capacity() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #50)")] // InvalidRoyaltyBps
+#[should_panic(expected = "Error(Contract, #124)")] // InvalidRoyaltyBps
 fn create_event_rejects_royalty_above_100pct() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -152,7 +152,7 @@ fn create_event_rejects_royalty_above_100pct() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #49)")] // InvalidEventDate
+#[should_panic(expected = "Error(Contract, #123)")] // InvalidEventDate
 fn create_event_rejects_past_date() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -205,7 +205,6 @@ fn purchase_ticket_transfers_funds_and_mints() {
     let event = f.client.get_event(&event_id);
     assert_eq!(event.sold, 1);
 
-
     // Funds moved off the buyer.
     let token_client = TokenClient::new(&f.env, &f.token);
     assert_eq!(token_client.balance(&buyer), TOKEN_INITIAL_BALANCE - price);
@@ -249,7 +248,7 @@ fn purchase_ticket_routes_fee_to_platform_when_configured() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #47)")] // EventSoldOut
+#[should_panic(expected = "Error(Contract, #121)")] // EventSoldOut
 fn purchase_ticket_panics_when_sold_out() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -273,7 +272,7 @@ fn purchase_ticket_panics_when_sold_out() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #46)")] // EventNotFound
+#[should_panic(expected = "Error(Contract, #120)")] // EventNotFound
 fn purchase_ticket_panics_when_event_missing() {
     let f = setup();
     let buyer = Address::generate(&f.env);
@@ -376,7 +375,7 @@ fn resale_with_zero_royalty_pays_seller_in_full() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #52)")] // NotTicketOwner
+#[should_panic(expected = "Error(Contract, #126)")] // NotTicketOwner
 fn resale_rejects_non_owner_seller() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -403,7 +402,7 @@ fn resale_rejects_non_owner_seller() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #54)")] // InvalidResalePrice
+#[should_panic(expected = "Error(Contract, #127)")] // InvalidResalePrice
 fn resale_rejects_zero_price() {
     let f = setup();
     let (merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);
@@ -426,7 +425,7 @@ fn resale_rejects_zero_price() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #51)")] // TicketNotFound
+#[should_panic(expected = "Error(Contract, #125)")] // TicketNotFound
 fn resale_rejects_unknown_ticket() {
     let f = setup();
     let (_merchant, _) = register_merchant_with_account(&f.env, &f.client, &f.token);

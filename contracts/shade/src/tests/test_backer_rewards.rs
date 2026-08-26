@@ -9,6 +9,7 @@ use soroban_sdk::{Address, Env, String, Vec};
 struct Fixture<'a> {
     env: Env,
     client: ShadeClient<'a>,
+    #[allow(dead_code)]
     admin: Address,
     token: Address,
     merchant: Address,
@@ -98,7 +99,9 @@ fn test_create_backer_campaign_stores_fields() {
     let name = String::from_str(&f.env, "Community Build");
     let deadline = future_deadline(&f.env);
 
-    let campaign_id = f.client.create_backer_campaign(&f.merchant, &name, &f.token, &deadline);
+    let campaign_id = f
+        .client
+        .create_backer_campaign(&f.merchant, &name, &f.token, &deadline);
     assert_eq!(campaign_id, 1);
 
     let campaign = f.client.get_backer_campaign(&campaign_id);
@@ -120,14 +123,19 @@ fn test_set_reward_tiers_and_select_tier() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer = Address::generate(&f.env);
     fund(&f.env, &f.token, &backer, 500);
     f.client.pledge_to_campaign(&backer, &campaign_id, &500);
 
-    f.client.select_backer_reward_tier(&backer, &campaign_id, &1);
-    assert_eq!(f.client.get_backer_selected_tier(&campaign_id, &backer), Some(1));
+    f.client
+        .select_backer_reward_tier(&backer, &campaign_id, &1);
+    assert_eq!(
+        f.client.get_backer_selected_tier(&campaign_id, &backer),
+        Some(1)
+    );
 }
 
 #[test]
@@ -139,7 +147,8 @@ fn test_cumulative_pledge_unlocks_higher_tier() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer = Address::generate(&f.env);
     fund(&f.env, &f.token, &backer, 600);
@@ -147,8 +156,12 @@ fn test_cumulative_pledge_unlocks_higher_tier() {
     f.client.pledge_to_campaign(&backer, &campaign_id, &300);
 
     assert_eq!(f.client.get_backer_pledge(&campaign_id, &backer), 600);
-    f.client.select_backer_reward_tier(&backer, &campaign_id, &1);
-    assert_eq!(f.client.get_backer_selected_tier(&campaign_id, &backer), Some(1));
+    f.client
+        .select_backer_reward_tier(&backer, &campaign_id, &1);
+    assert_eq!(
+        f.client.get_backer_selected_tier(&campaign_id, &backer),
+        Some(1)
+    );
 }
 
 #[test]
@@ -160,15 +173,18 @@ fn test_fulfill_reward_and_claim_perk() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer = Address::generate(&f.env);
     fund(&f.env, &f.token, &backer, 500);
     f.client.pledge_to_campaign(&backer, &campaign_id, &500);
-    f.client.select_backer_reward_tier(&backer, &campaign_id, &1);
+    f.client
+        .select_backer_reward_tier(&backer, &campaign_id, &1);
 
     assert!(!f.client.is_backer_reward_fulfilled(&campaign_id, &backer));
-    f.client.fulfill_backer_reward(&f.merchant, &campaign_id, &backer);
+    f.client
+        .fulfill_backer_reward(&f.merchant, &campaign_id, &backer);
     assert!(f.client.is_backer_reward_fulfilled(&campaign_id, &backer));
 
     assert!(!f.client.is_backer_perk_claimed(&campaign_id, &backer, &0));
@@ -193,7 +209,8 @@ fn test_fulfillment_is_independent_per_backer() {
     f.client.pledge_to_campaign(&backer1, &campaign_id, &200);
     f.client.pledge_to_campaign(&backer2, &campaign_id, &200);
 
-    f.client.fulfill_backer_reward(&f.merchant, &campaign_id, &backer1);
+    f.client
+        .fulfill_backer_reward(&f.merchant, &campaign_id, &backer1);
     assert!(f.client.is_backer_reward_fulfilled(&campaign_id, &backer1));
     assert!(!f.client.is_backer_reward_fulfilled(&campaign_id, &backer2));
 }
@@ -208,12 +225,14 @@ fn test_select_tier_below_minimum_panics() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer = Address::generate(&f.env);
     fund(&f.env, &f.token, &backer, 50);
     f.client.pledge_to_campaign(&backer, &campaign_id, &50);
-    f.client.select_backer_reward_tier(&backer, &campaign_id, &0);
+    f.client
+        .select_backer_reward_tier(&backer, &campaign_id, &0);
 }
 
 #[test]
@@ -226,7 +245,8 @@ fn test_tier_capacity_enforced() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer1 = Address::generate(&f.env);
     let backer2 = Address::generate(&f.env);
@@ -239,10 +259,13 @@ fn test_tier_capacity_enforced() {
     f.client.pledge_to_campaign(&backer2, &campaign_id, &500);
     f.client.pledge_to_campaign(&backer3, &campaign_id, &500);
 
-    f.client.select_backer_reward_tier(&backer1, &campaign_id, &1);
-    f.client.select_backer_reward_tier(&backer2, &campaign_id, &1);
+    f.client
+        .select_backer_reward_tier(&backer1, &campaign_id, &1);
+    f.client
+        .select_backer_reward_tier(&backer2, &campaign_id, &1);
     // Premium tier max_backers = 2 — third selection must panic.
-    f.client.select_backer_reward_tier(&backer3, &campaign_id, &1);
+    f.client
+        .select_backer_reward_tier(&backer3, &campaign_id, &1);
 }
 
 #[test]
@@ -255,12 +278,14 @@ fn test_claim_perk_before_fulfillment_panics() {
         &f.token,
         &future_deadline(&f.env),
     );
-    f.client.set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
+    f.client
+        .set_backer_reward_tiers(&f.merchant, &campaign_id, &sample_tiers(&f.env));
 
     let backer = Address::generate(&f.env);
     fund(&f.env, &f.token, &backer, 500);
     f.client.pledge_to_campaign(&backer, &campaign_id, &500);
-    f.client.select_backer_reward_tier(&backer, &campaign_id, &1);
+    f.client
+        .select_backer_reward_tier(&backer, &campaign_id, &1);
     f.client.claim_backer_perk(&backer, &campaign_id, &0);
 }
 

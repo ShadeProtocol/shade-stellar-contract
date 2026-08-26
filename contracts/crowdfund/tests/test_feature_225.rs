@@ -29,7 +29,7 @@ fn base_env() -> Env {
 }
 
 /// Register a fresh CrowdfundContract and return its client.
-fn register_contract(env: &Env) -> (Address, CrowdfundContractClient<'_>) {
+fn register_contract(env: &Env) -> (Address, CrowdfundContractClient<'static>) {
     let addr = env.register(CrowdfundContract, ());
     let client = CrowdfundContractClient::new(env, &addr);
     (addr, client)
@@ -41,11 +41,22 @@ fn mint(env: &Env, token: &Address, to: &Address, amount: i128) {
 }
 
 /// Fully initialise a campaign and return (env, contract_addr, client, token, organizer).
-fn setup_campaign(goal: i128, deadline_offset: u64) -> (Env, Address, CrowdfundContractClient<'static>, Address, Address) {
+fn setup_campaign(
+    goal: i128,
+    deadline_offset: u64,
+) -> (
+    Env,
+    Address,
+    CrowdfundContractClient<'static>,
+    Address,
+    Address,
+) {
     let env = base_env();
     let (contract, client) = register_contract(&env);
     let token_admin = Address::generate(&env);
-    let token = env.register_stellar_asset_contract_v2(token_admin).address();
+    let token = env
+        .register_stellar_asset_contract_v2(token_admin)
+        .address();
     let organizer = Address::generate(&env);
     let deadline = env.ledger().timestamp() + deadline_offset;
     client.init_campaign(&organizer, &token, &goal, &deadline);
@@ -61,7 +72,14 @@ fn setup_milestone_campaign(
     milestones_bps: &[u32],
     n_backers: usize,
     pledge_per_backer: i128,
-) -> (Env, Address, CrowdfundContractClient<'static>, Address, Address, Vec<Address>) {
+) -> (
+    Env,
+    Address,
+    CrowdfundContractClient<'static>,
+    Address,
+    Address,
+    Vec<Address>,
+) {
     let (env, contract, client, token, organizer) = setup_campaign(goal, 86_400);
 
     let mut bps_vec = soroban_sdk::Vec::new(&env);
@@ -168,8 +186,7 @@ fn test_happy_path_mixed_votes_across_milestones() {
 /// `pledge_of` returns the full recorded pledge including matched amounts.
 #[test]
 fn test_happy_path_pledge_of_reflects_recorded_amount() {
-    let (env, _contract, client, token, organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 500);
     client.contribute(&backer, &500);
@@ -182,8 +199,7 @@ fn test_happy_path_pledge_of_reflects_recorded_amount() {
 /// `goal_reached` flips to true once contributions meet the goal.
 #[test]
 fn test_happy_path_goal_reached_flag_updates_correctly() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, _organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
 
     assert!(!client.goal_reached());
@@ -269,8 +285,7 @@ fn test_malicious_double_release_panics() {
 #[test]
 #[should_panic]
 fn test_malicious_release_before_deadline_panics() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, _organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
 
     client.set_milestones(&vec![&env, 10_000_u32]);
@@ -288,8 +303,7 @@ fn test_malicious_release_before_deadline_panics() {
 #[test]
 #[should_panic]
 fn test_malicious_release_when_goal_not_reached_panics() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(10_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(10_000, 100);
     let backer = Address::generate(&env);
 
     client.set_milestones(&vec![&env, 10_000_u32]);
@@ -337,10 +351,9 @@ fn test_malicious_unlock_invalid_milestone_index_panics() {
 #[test]
 #[should_panic]
 fn test_malicious_set_milestones_wrong_sum_panics() {
-    let (env, _contract, client, token, organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, organizer) = setup_campaign(1_000, 86_400);
     let _ = (&token, &organizer); // suppress unused warning
-    // Sums to 9 000, not 10 000.
+                                  // Sums to 9 000, not 10 000.
     client.set_milestones(&vec![&env, 5_000_u32, 4_000_u32]);
 }
 
@@ -348,8 +361,7 @@ fn test_malicious_set_milestones_wrong_sum_panics() {
 #[test]
 #[should_panic]
 fn test_malicious_set_milestones_zero_entry_panics() {
-    let (env, _contract, client, _token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, _token, _organizer) = setup_campaign(1_000, 86_400);
     client.set_milestones(&vec![&env, 0_u32, 10_000_u32]);
 }
 
@@ -388,7 +400,10 @@ fn test_event_milestone_unlocked_emitted() {
     // Detailed field matching uses the raw events API.
     let env_ref = &_env;
     let events = env_ref.events().all();
-    assert!(!events.is_empty(), "expected at least one event after unlock_milestone");
+    assert!(
+        !events.is_empty(),
+        "expected at least one event after unlock_milestone"
+    );
 }
 
 /// `MilestoneVoteCastEvent` is emitted with correct voter, index, and weight.
@@ -404,7 +419,10 @@ fn test_event_vote_cast_emitted_with_correct_weight() {
     client.vote_milestone(backer, &0, &true);
 
     let events = env.events().all();
-    assert!(!events.is_empty(), "expected at least one event after vote_milestone");
+    assert!(
+        !events.is_empty(),
+        "expected at least one event after vote_milestone"
+    );
 }
 
 /// `MilestoneReleasedEvent` is emitted after a successful release.
@@ -421,7 +439,10 @@ fn test_event_milestone_released_emitted() {
     client.release_milestone(&0);
 
     let events = env.events().all();
-    assert!(!events.is_empty(), "expected at least one event after release_milestone");
+    assert!(
+        !events.is_empty(),
+        "expected at least one event after release_milestone"
+    );
 }
 
 /// `CampaignExecutedEvent` fires when a non-milestone campaign executes.
@@ -429,8 +450,7 @@ fn test_event_milestone_released_emitted() {
 fn test_event_campaign_executed_emitted() {
     use soroban_sdk::testutils::Events as _;
 
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(1_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(1_000, 100);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 1_000);
     client.contribute(&backer, &1_000);
@@ -447,8 +467,7 @@ fn test_event_campaign_executed_emitted() {
 fn test_event_refund_claimed_emitted() {
     use soroban_sdk::testutils::Events as _;
 
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(5_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(5_000, 100);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 500);
     client.contribute(&backer, &500);
@@ -465,8 +484,7 @@ fn test_event_refund_claimed_emitted() {
 fn test_event_batch_refund_processed_emitted() {
     use soroban_sdk::testutils::Events as _;
 
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(10_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(10_000, 100);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 500);
     client.contribute(&backer, &500);
@@ -518,7 +536,10 @@ fn test_rollback_duplicate_vote_does_not_double_count() {
     // not 2_000.  We verify indirectly: backer[1] hasn't voted yet,
     // so 1_000 approval is NOT > 1_000 (50 % of 2_000); release must fail.
     let rel = client.try_release_milestone(&0);
-    assert!(rel.is_err(), "release must fail: approval == raised/2, not strictly greater");
+    assert!(
+        rel.is_err(),
+        "release must fail: approval == raised/2, not strictly greater"
+    );
 
     // Now backer[1] votes YES → approval = 2_000 which is NOT > 2_000 (still fails).
     client.vote_milestone(&backers[1], &0, &true);
@@ -533,8 +554,7 @@ fn test_rollback_duplicate_vote_does_not_double_count() {
 /// Panicking `init_campaign` (double-init) leaves the original state intact.
 #[test]
 fn test_rollback_double_init_preserves_original_state() {
-    let (env, _contract, client, token, organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, organizer) = setup_campaign(1_000, 86_400);
 
     let second_organizer = Address::generate(&env);
     let second_token = env
@@ -560,8 +580,7 @@ fn test_rollback_double_init_preserves_original_state() {
 /// Panicking `contribute` (after deadline) must not mutate `raised`.
 #[test]
 fn test_rollback_contribute_after_deadline_does_not_change_raised() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(5_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(5_000, 100);
     let backer = Address::generate(&env);
 
     mint(&env, &token, &backer, 500);
@@ -573,7 +592,11 @@ fn test_rollback_contribute_after_deadline_does_not_change_raised() {
     mint(&env, &token, &backer, 100);
     let result = client.try_contribute(&backer, &100);
     assert!(result.is_err());
-    assert_eq!(client.raised(), raised_before, "raised must not change after failed contribute");
+    assert_eq!(
+        client.raised(),
+        raised_before,
+        "raised must not change after failed contribute"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -584,8 +607,7 @@ fn test_rollback_contribute_after_deadline_does_not_change_raised() {
 #[test]
 #[should_panic]
 fn test_edge_vote_without_milestones_set_panics() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, token, _organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 500);
     client.contribute(&backer, &500);
@@ -597,8 +619,7 @@ fn test_edge_vote_without_milestones_set_panics() {
 #[test]
 #[should_panic]
 fn test_edge_release_without_milestones_set_panics() {
-    let (env, _contract, client, token, _organizer, _) =
-        setup_campaign(1_000, 100);
+    let (env, _contract, client, token, _organizer) = setup_campaign(1_000, 100);
     let backer = Address::generate(&env);
     mint(&env, &token, &backer, 1_000);
     client.contribute(&backer, &1_000);
@@ -619,7 +640,10 @@ fn test_edge_approval_exactly_half_is_not_majority() {
     client.vote_milestone(&backers[0], &0, &true);
 
     let result = client.try_release_milestone(&0);
-    assert!(result.is_err(), "approval == raised/2 should not be a strict majority");
+    assert!(
+        result.is_err(),
+        "approval == raised/2 should not be a strict majority"
+    );
 }
 
 /// Approval weight one unit above raised/2 IS a majority.
@@ -629,8 +653,7 @@ fn test_edge_approval_one_above_half_is_majority() {
     // Majority needs approval_weight > 1_500.
     // backer[0] (1_001) alone: 1_001 > 1_500? No.
     // backer[0] + backer[1] (1_001 + 999 = 2_000) > 1_500? Yes.
-    let (env, _contract, client, token, organizer, _) =
-        setup_campaign(3_000, 86_400);
+    let (env, _contract, client, token, organizer) = setup_campaign(3_000, 86_400);
 
     client.set_milestones(&vec![&env, 10_000_u32]);
 
@@ -662,8 +685,7 @@ fn test_edge_approval_one_above_half_is_majority() {
 #[test]
 #[should_panic]
 fn test_edge_contribute_zero_amount_panics() {
-    let (env, _contract, client, _token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, _token, _organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
     client.contribute(&backer, &0);
 }
@@ -672,8 +694,7 @@ fn test_edge_contribute_zero_amount_panics() {
 #[test]
 #[should_panic]
 fn test_edge_contribute_negative_amount_panics() {
-    let (env, _contract, client, _token, _organizer, _) =
-        setup_campaign(1_000, 86_400);
+    let (env, _contract, client, _token, _organizer) = setup_campaign(1_000, 86_400);
     let backer = Address::generate(&env);
     client.contribute(&backer, &-1);
 }
@@ -786,8 +807,7 @@ fn test_edge_many_small_milestones_sum_to_full() {
 /// Batch-refund with no contributors emits the event and doesn't panic.
 #[test]
 fn test_edge_batch_refund_no_contributors() {
-    let (env, _contract, client, _token, _organizer, _) =
-        setup_campaign(5_000, 100);
+    let (env, _contract, client, _token, _organizer) = setup_campaign(5_000, 100);
     env.ledger().with_mut(|l| l.timestamp += 200);
     // No contributors, goal not met → batch_refund must succeed without panic.
     client.batch_refund();
@@ -797,8 +817,7 @@ fn test_edge_batch_refund_no_contributors() {
 #[test]
 #[should_panic]
 fn test_edge_claim_refund_no_pledge_panics() {
-    let (env, _contract, client, _token, _organizer, _) =
-        setup_campaign(5_000, 100);
+    let (env, _contract, client, _token, _organizer) = setup_campaign(5_000, 100);
     let nobody = Address::generate(&env);
     env.ledger().with_mut(|l| l.timestamp += 200);
     client.claim_refund(&nobody);

@@ -2,7 +2,7 @@
 
 use crate::shade::{Shade, ShadeClient};
 use crate::types::TransactionType;
-use soroban_sdk::testutils::{Address as _, Ledger as _};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{token, Address, Env, String};
 
 fn setup_test() -> (Env, ShadeClient<'static>, Address, Address, Address) {

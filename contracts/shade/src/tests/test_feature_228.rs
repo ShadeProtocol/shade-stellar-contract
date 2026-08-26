@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use crate::errors::ContractError;
 use crate::shade::{Shade, ShadeClient};
 use crate::types::CrossChainBridgePayload;
@@ -69,8 +67,7 @@ fn assert_bridge_placeholder_event(
         let timestamp_val = data_map.get(Symbol::new(env, "timestamp")).unwrap();
 
         let caller_in_event: Address = caller_val.try_into_val(env).unwrap();
-        let payload_in_event: CrossChainBridgePayload =
-            payload_val.try_into_val(env).unwrap();
+        let payload_in_event: CrossChainBridgePayload = payload_val.try_into_val(env).unwrap();
         let timestamp_in_event: u64 = timestamp_val.try_into_val(env).unwrap();
 
         assert_eq!(caller_in_event, expected_caller.clone());
@@ -150,11 +147,14 @@ fn test_emit_bridge_placeholder_multiple_emissions_increment_events() {
     let payload_a = sample_payload(&env, 10, &merchant, None, &token, 250, None);
     let payload_b = sample_payload(&env, 11, &merchant, None, &token, 750, None);
 
+    // `env.events().all()` only holds the most recent invocation's events, so
+    // count immediately after each emit rather than at the end.
     client.emit_bridge_placeholder(&caller, &payload_a);
+    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 1);
+
     env.ledger().with_mut(|l| l.timestamp += 60);
     client.emit_bridge_placeholder(&caller, &payload_b);
-
-    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 2);
+    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 1);
 }
 
 #[test]
@@ -165,7 +165,6 @@ fn test_emit_bridge_placeholder_rejects_unauthorized_caller() {
     let token = Address::generate(&env);
     let payload = sample_payload(&env, 7, &merchant, None, &token, 500, None);
 
-    let events_before = env.events().all().len();
     let admin_before = client.get_admin();
 
     env.set_auths(&[]);
@@ -173,7 +172,9 @@ fn test_emit_bridge_placeholder_rejects_unauthorized_caller() {
 
     assert!(result.is_err());
     assert_eq!(client.get_admin(), admin_before);
-    assert_eq!(env.events().all().len(), events_before);
+    // `env.events().all()` returns only the events of the most recent
+    // invocation, so assert on that call's output rather than a running total.
+    assert!(env.events().all().is_empty());
 }
 
 #[test]
@@ -186,7 +187,6 @@ fn test_emit_bridge_placeholder_blocked_when_paused() {
     let token = Address::generate(&env);
     let payload = sample_payload(&env, 99, &merchant, None, &token, 1_000, None);
 
-    let events_before = env.events().all().len();
     let expected_error =
         soroban_sdk::Error::from_contract_error(ContractError::ContractPaused as u32);
 
@@ -195,7 +195,9 @@ fn test_emit_bridge_placeholder_blocked_when_paused() {
     assert!(matches!(result, Err(Ok(err)) if err == expected_error));
     assert!(client.is_paused());
     assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 0);
-    assert_eq!(env.events().all().len(), events_before);
+    // `env.events().all()` returns only the events of the most recent
+    // invocation, so assert on that call's output rather than a running total.
+    assert!(env.events().all().is_empty());
 }
 
 #[test]
@@ -222,15 +224,7 @@ fn test_emit_bridge_placeholder_accepts_max_i128_amount() {
     let merchant = Address::generate(&env);
     let token = Address::generate(&env);
 
-    let payload = sample_payload(
-        &env,
-        u64::MAX,
-        &merchant,
-        None,
-        &token,
-        i128::MAX,
-        None,
-    );
+    let payload = sample_payload(&env, u64::MAX, &merchant, None, &token, i128::MAX, None);
 
     let timestamp = env.ledger().timestamp();
     client.emit_bridge_placeholder(&caller, &payload);
@@ -284,7 +278,10 @@ fn test_failed_emit_does_not_mutate_contract_state() {
 
     assert_eq!(client.get_admin(), admin_before);
     assert!(client.is_paused());
-    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), events_before);
+    assert_eq!(
+        count_bridge_placeholder_events(&env, &contract_id),
+        events_before
+    );
 }
 
 #[test]
@@ -299,8 +296,10 @@ fn test_successful_emit_leaves_persistent_storage_unchanged() {
     let paused_before = client.is_paused();
 
     client.emit_bridge_placeholder(&caller, &payload);
+    // `env.events().all()` only holds the most recent invocation's events, so
+    // count immediately after each emit rather than at the end.
+    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 1);
 
     assert_eq!(client.get_admin(), admin_before);
     assert_eq!(client.is_paused(), paused_before);
-    assert_eq!(count_bridge_placeholder_events(&env, &contract_id), 1);
 }

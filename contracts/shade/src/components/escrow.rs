@@ -2,7 +2,7 @@ use crate::components::{admin, merchant};
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Escrow, EscrowStatus};
-use soroban_sdk::{panic_with_error, token, Address, Env, Option};
+use soroban_sdk::{panic_with_error, token, Address, Env};
 
 pub fn create_escrow(
     env: &Env,
@@ -46,7 +46,9 @@ pub fn create_escrow(
         date_released: Option::None,
     };
 
-    env.storage().persistent().set(&DataKey::Escrow(id), &escrow);
+    env.storage()
+        .persistent()
+        .set(&DataKey::Escrow(id), &escrow);
     env.storage().persistent().set(&DataKey::EscrowCount, &id);
 
     events::publish_escrow_created_event(
@@ -90,7 +92,9 @@ pub fn fund_escrow(env: &Env, buyer: &Address, escrow_id: u64) {
     escrow.status = EscrowStatus::Funded;
     escrow.date_funded = Option::Some(env.ledger().timestamp());
 
-    env.storage().persistent().set(&DataKey::Escrow(escrow_id), &escrow);
+    env.storage()
+        .persistent()
+        .set(&DataKey::Escrow(escrow_id), &escrow);
 
     events::publish_escrow_funded_event(
         env,
@@ -116,7 +120,8 @@ pub fn release_escrow(env: &Env, buyer: &Address, escrow_id: u64) {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
-    let merchant_account = merchant::get_merchant_account(env, merchant::get_merchant_id(env, &escrow.seller));
+    let merchant_account =
+        merchant::get_merchant_account(env, merchant::get_merchant_id(env, &escrow.seller));
     let token_client = token::TokenClient::new(env, &escrow.token);
     let contract_address = env.current_contract_address();
 
@@ -138,7 +143,9 @@ pub fn release_escrow(env: &Env, buyer: &Address, escrow_id: u64) {
     escrow.status = EscrowStatus::Released;
     escrow.date_released = Option::Some(env.ledger().timestamp());
 
-    env.storage().persistent().set(&DataKey::Escrow(escrow_id), &escrow);
+    env.storage()
+        .persistent()
+        .set(&DataKey::Escrow(escrow_id), &escrow);
 
     events::publish_escrow_released_event(
         env,
@@ -171,7 +178,9 @@ pub fn refund_escrow(env: &Env, seller: &Address, escrow_id: u64) {
 
     escrow.status = EscrowStatus::Refunded;
 
-    env.storage().persistent().set(&DataKey::Escrow(escrow_id), &escrow);
+    env.storage()
+        .persistent()
+        .set(&DataKey::Escrow(escrow_id), &escrow);
 
     events::publish_escrow_refunded_event(
         env,

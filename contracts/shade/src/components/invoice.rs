@@ -1,5 +1,5 @@
 use crate::components::{
-    access_control, admin, auto_withdrawal, history, merchant, signature_util,
+    access_control, admin, auto_withdrawal, history, merchant, platform_fee, signature_util,
 };
 use crate::errors::{ContractError, EscrowError};
 use crate::events;
@@ -8,7 +8,7 @@ use crate::types::{
     InvoiceStatus, PlatformFeeRouteKind, Role, Transaction, TransactionType,
 };
 use soroban_sdk::token::TokenClient;
-use soroban_sdk::{contractclient, panic_with_error, token, Address, BytesN, Env, String, Vec};
+use soroban_sdk::{contractclient, panic_with_error, Address, BytesN, Env, String, Vec};
 
 #[contractclient(name = "MerchantAccountRefundClient")]
 pub trait MerchantAccountRefund {
@@ -659,13 +659,23 @@ pub fn refund_invoice_partial(
 }
 
 pub fn pay_invoices_batch(env: &Env, payer: &Address, invoice_ids: &Vec<u64>) {
+    // Authorize once for the whole batch: `require_auth` may only be called
+    // once per address per frame, so the per-invoice path below must not
+    // re-authorize.
     payer.require_auth();
     for invoice_id in invoice_ids.iter() {
-        pay_invoice(env, payer, invoice_id);
+        pay_invoice_inner(env, payer, invoice_id);
     }
 }
 
 pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
+    payer.require_auth();
+    pay_invoice_inner(env, payer, invoice_id)
+}
+
+/// Settle an invoice in full without authorizing. Callers must have already
+/// called `require_auth` for `payer`.
+fn pay_invoice_inner(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
     let invoice = get_invoice(env, invoice_id);
     if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
@@ -674,12 +684,17 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
     if remaining_amount <= 0 {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
-    pay_invoice_partial(env, payer, invoice_id, remaining_amount)
+    pay_invoice_partial_inner(env, payer, invoice_id, remaining_amount)
 }
 
 pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: i128) -> i128 {
     payer.require_auth();
+    pay_invoice_partial_inner(env, payer, invoice_id, amount)
+}
 
+/// Apply a partial payment without authorizing. Callers must have already
+/// called `require_auth` for `payer`.
+fn pay_invoice_partial_inner(env: &Env, payer: &Address, invoice_id: u64, amount: i128) -> i128 {
     if amount <= 0 {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
@@ -782,7 +797,6 @@ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: 
 
     fee_amount
 }
-
 
 pub fn void_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
     merchant_address.require_auth();
@@ -925,6 +939,15 @@ pub fn claim_refund(env: &Env, buyer: &Address, invoice_id: u64) {
     env.storage()
         .persistent()
         .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    events::publish_escrow_expired_refund_event(
+        env,
+        invoice_id,
+        buyer.clone(),
+        amount_to_refund,
+        invoice.token.clone(),
+        env.ledger().timestamp(),
+    );
 }
 
 fn merchant_id_to_address(env: &Env, merchant_id: u64) -> Address {

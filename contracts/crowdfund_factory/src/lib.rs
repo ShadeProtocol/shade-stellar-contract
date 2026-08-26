@@ -9,7 +9,7 @@ mod tests;
 use crate::errors::FactoryError;
 use soroban_sdk::{
     contract, contractevent, contractimpl, contracttype, panic_with_error, Address, Bytes, BytesN,
-    Env, IntoVal, Symbol, Vec,
+    Env, IntoVal, String, Symbol, Vec,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -776,7 +776,8 @@ impl CrowdfundFactory {
             .get(&DataKey::DaoQuorumBps)
             .unwrap_or_else(|| panic_with_error!(&env, FactoryError::DaoNotInitialized));
 
-        let quorum_met = (total_votes as u64) * 10_000 >= (member_count as u64) * (quorum_bps as u64);
+        let quorum_met =
+            (total_votes as u64) * 10_000 >= (member_count as u64) * (quorum_bps as u64);
 
         if quorum_met && proposal.votes_for > proposal.votes_against {
             proposal.status = DaoProposalStatus::Executed;

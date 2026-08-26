@@ -181,7 +181,7 @@ fn test_sub_renewed_event_emitted() {
     let mut found = false;
     for event in events.iter() {
         let (_, topics, _) = event;
-        if topics.len() > 0 {
+        if !topics.is_empty() {
             let event_name: Symbol = topics.get(0).unwrap().try_into_val(&f.env).unwrap();
             if event_name == Symbol::new(&f.env, "sub_renewed") {
                 found = true;
@@ -204,7 +204,7 @@ fn test_sub_expired_event_emitted_on_cancel() {
     let mut found = false;
     for event in events.iter() {
         let (_, topics, _) = event;
-        if topics.len() > 0 {
+        if !topics.is_empty() {
             let event_name: Symbol = topics.get(0).unwrap().try_into_val(&f.env).unwrap();
             if event_name == Symbol::new(&f.env, "sub_expired") {
                 found = true;

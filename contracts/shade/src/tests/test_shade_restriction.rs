@@ -88,7 +88,7 @@ fn test_admin_restrict_merchant_account_success() {
     let (env, client, acct_client, admin, _manager, merchant) = setup();
 
     // Verify initial state
-    assert_eq!(acct_client.is_restricted_account(), false);
+    assert!(!acct_client.is_restricted_account());
 
     // Admin restricts the account
     env.mock_all_auths();
@@ -98,12 +98,12 @@ fn test_admin_restrict_merchant_account_success() {
     assert_latest_account_restricted_event(&env, &client.address, &merchant, true, &admin);
 
     // Verify Account contract state changed
-    assert_eq!(acct_client.is_restricted_account(), true);
+    assert!(acct_client.is_restricted_account());
 
     // Admin un-restricts the account
     client.restrict_merchant_account(&admin, &merchant, &false);
     assert_latest_account_restricted_event(&env, &client.address, &merchant, false, &admin);
-    assert_eq!(acct_client.is_restricted_account(), false);
+    assert!(!acct_client.is_restricted_account());
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn test_manager_restrict_merchant_account_success() {
     assert_latest_account_restricted_event(&env, &client.address, &merchant, true, &manager);
 
     // Verify Account contract state
-    assert_eq!(acct_client.is_restricted_account(), true);
+    assert!(acct_client.is_restricted_account());
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn test_unauthorized_restriction_attempt() {
     );
 
     // Verify state did not change
-    assert_eq!(acct_client.is_restricted_account(), false);
+    assert!(!acct_client.is_restricted_account());
 }
 
 #[test]

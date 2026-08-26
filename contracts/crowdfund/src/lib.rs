@@ -2,8 +2,6 @@
 
 mod errors;
 #[cfg(test)]
-mod test;
-#[cfg(test)]
 mod tests;
 
 use errors::CrowdfundError;
@@ -14,14 +12,12 @@ use soroban_sdk::{
 
 #[allow(dead_code)]
 #[contractclient(name = "InvoicePaymentClient")]
-#[allow(dead_code)]
 trait InvoicePayment {
     fn pay_invoice(env: Env, payer: Address, invoice_id: u64);
 }
 
 #[allow(dead_code)]
 #[contractclient(name = "MerchantAccountRefundClient")]
-#[allow(dead_code)]
 trait MerchantAccountRefund {
     fn refund(env: Env, token: Address, amount: i128, to: Address);
 }
@@ -147,11 +143,6 @@ pub struct PledgeReceivedEvent {
 }
 
 #[contractevent]
-pub struct AffiliateRegisteredEvent {
-    pub affiliate: Address,
-}
-
-#[contractevent]
 pub struct AffiliateAccruedEvent {
     pub affiliate: Address,
     pub contributor: Address,
@@ -168,6 +159,65 @@ pub struct AffiliateClaimedEvent {
 pub struct BatchRefundProcessedEvent {
     pub total_refunded: i128,
     pub contributor_count: u32,
+}
+
+// ── Social recovery / guardian events ────────────────────────────────────────
+
+/// Emitted when the organizer (re)configures the guardian set. Carries the
+/// guardian count and threshold rather than the addresses so the event stays a
+/// fixed size regardless of set size; read `get_guardians` for the members.
+#[contractevent]
+pub struct GuardiansSetEvent {
+    pub organizer: Address,
+    pub guardian_count: u32,
+    pub threshold: u32,
+}
+
+/// Emitted when a guardian nominates a new organizer, opening a recovery.
+#[contractevent]
+pub struct RecoveryInitiatedEvent {
+    pub initiator: Address,
+    pub nominee: Address,
+}
+
+/// Emitted on each guardian approval, carrying progress toward the threshold so
+/// an indexer can show "2 of 3 approved" without extra reads.
+#[contractevent]
+pub struct RecoveryApprovedEvent {
+    pub guardian: Address,
+    pub approvals: u32,
+    pub threshold: u32,
+}
+
+/// Emitted when the approval threshold is met and the organizer is replaced.
+#[contractevent]
+pub struct RecoveryExecutedEvent {
+    pub old_organizer: Address,
+    pub new_organizer: Address,
+}
+
+/// Emitted when the sitting organizer cancels a pending recovery.
+#[contractevent]
+pub struct RecoveryCancelledEvent {
+    pub organizer: Address,
+    pub nominee: Address,
+}
+
+// ── KYC gating events ────────────────────────────────────────────────────────
+
+/// Emitted when the organizer turns the KYC contribution gate on or off.
+#[contractevent]
+pub struct KycRequirementSetEvent {
+    pub organizer: Address,
+    pub required: bool,
+}
+
+/// Emitted when the organizer records or revokes a contributor's verification.
+#[contractevent]
+pub struct KycVerificationSetEvent {
+    pub organizer: Address,
+    pub contributor: Address,
+    pub verified: bool,
 }
 
 /// Highly-detailed on-chain checkpoint of a campaign's aggregate statistics,
@@ -271,6 +321,12 @@ enum DataKey {
     Contributors,
     RefundProcessed,
     MatchingPool,
+    TotalMatched,
+    Badge(Address, u32),
+    BadgeCount(Address),
+    EarlyBackerLimit,
+    WhaleThreshold,
+    DiscountTiers,
     // Public comment attached to a contributor pledge.
     // ── Affiliate / referral tracking (#349) ────────────────────────────────
     // Commission rate (in basis points) paid to affiliates from the raised pool.
@@ -288,6 +344,35 @@ enum DataKey {
     PledgeComment(Address),
     DiscountTiers,
     DiscountApplied(Address),
+    // ── Sponsor matching ────────────────────────────────────────────────────
+    // Cumulative amount paid out of the sponsor matching pool.
+    TotalMatched,
+    // ── Badges / gamification ───────────────────────────────────────────────
+    // Awarded badge → ledger timestamp it was earned at.
+    Badge(Address, BadgeKind),
+    // Number of distinct badges a backer holds.
+    BadgeCount(Address),
+    // Minimum total pledge that qualifies for the `Whale` badge.
+    WhaleThreshold,
+    // How many of the first contributors qualify for the `EarlyBacker` badge.
+    EarlyBackerLimit,
+    // ── Social recovery / guardians ─────────────────────────────────────────
+    // Addresses authorised to recover the organizer account.
+    Guardians,
+    // Number of guardian approvals required to execute a recovery.
+    GuardianThreshold,
+    // Organizer address nominated by the pending recovery, if any. Its presence
+    // is the "a recovery is pending" flag.
+    RecoveryNominee,
+    // Whether a given guardian has approved the pending recovery.
+    RecoveryApproval(Address),
+    // Approvals collected for the pending recovery.
+    RecoveryApprovalCount,
+    // ── KYC gating ──────────────────────────────────────────────────────────
+    // When true, contributors must be KYC-verified before pledging.
+    KycRequired,
+    // Whether a specific contributor has been marked KYC-verified.
+    KycVerified(Address),
 }
 
 #[contract]
@@ -297,13 +382,7 @@ pub struct CrowdfundContract;
 impl CrowdfundContract {
     const MAX_COMMENT_BYTES: u32 = 280;
 
-    pub fn init_campaign(
-        env: Env,
-        organizer: Address,
-        token: Address,
-        goal: i128,
-        deadline: u64,
-    ) {
+    pub fn init_campaign(env: Env, organizer: Address, token: Address, goal: i128, deadline: u64) {
         if env.storage().persistent().has(&DataKey::Organizer) {
             panic_with_error!(&env, CrowdfundError::AlreadyInitialized);
         }
@@ -399,9 +478,11 @@ impl CrowdfundContract {
         {
             panic_with_error!(&env, CrowdfundError::AlreadyExecuted);
         }
-        
+
         // Check KYC requirements
-        if Self::is_kyc_required(env.clone()) && !Self::is_kyc_verified(env.clone(), contributor.clone()) {
+        if Self::is_kyc_required(env.clone())
+            && !Self::is_kyc_verified(env.clone(), contributor.clone())
+        {
             panic_with_error!(&env, CrowdfundError::KYCRequired);
         }
 
@@ -409,9 +490,15 @@ impl CrowdfundContract {
             .storage()
             .persistent()
             .get(&DataKey::ShadeGateway)
+            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::ShadeGatewayNotSet));
+
         let discount_bps: u32 = {
             let now = env.ledger().timestamp();
-            if let Some(tiers) = env.storage().persistent().get::<_, Vec<DiscountTier>>(&DataKey::DiscountTiers) {
+            if let Some(tiers) = env
+                .storage()
+                .persistent()
+                .get::<_, Vec<DiscountTier>>(&DataKey::DiscountTiers)
+            {
                 let mut disc = 0u32;
                 for tier in tiers.iter() {
                     if now >= tier.start && now <= tier.end {
@@ -426,7 +513,7 @@ impl CrowdfundContract {
         };
 
         let discounted_amount = amount * (10_000i128 - discount_bps as i128) / 10_000i128;
-            .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::ShadeGatewayNotSet));
+
         let token_addr: Address = env
             .storage()
             .persistent()
@@ -446,7 +533,8 @@ impl CrowdfundContract {
             &env.current_contract_address(),
         );
 
-        let new_raised = Self::apply_pledge_with_matching(&env, contributor.clone(), discounted_amount);
+        let new_raised =
+            Self::apply_pledge_with_matching(&env, contributor.clone(), discounted_amount);
 
         let prev: i128 = env
             .storage()
@@ -458,7 +546,13 @@ impl CrowdfundContract {
             &prev.saturating_add(amount),
         );
 
-        DiscountAppliedEvent { contributor: contributor.clone(), original_amount: amount, discounted_amount, discount_bps }.publish(&env);
+        DiscountAppliedEvent {
+            contributor: contributor.clone(),
+            original_amount: amount,
+            discounted_amount,
+            discount_bps,
+        }
+        .publish(&env);
 
         Self::track_contributor(&env, contributor.clone());
         Self::check_stretch_goals(&env, new_raised);
@@ -485,9 +579,11 @@ impl CrowdfundContract {
         if env.ledger().timestamp() > deadline {
             panic_with_error!(&env, CrowdfundError::CampaignEnded);
         }
-        
+
         // Check KYC requirements
-        if Self::is_kyc_required(env.clone()) && !Self::is_kyc_verified(env.clone(), contributor.clone()) {
+        if Self::is_kyc_required(env.clone())
+            && !Self::is_kyc_verified(env.clone(), contributor.clone())
+        {
             panic_with_error!(&env, CrowdfundError::KYCRequired);
         }
 
@@ -689,8 +785,7 @@ impl CrowdfundContract {
             .unwrap_or_else(|| panic_with_error!(&env, CrowdfundError::NotInitialized));
 
         let contract_addr = env.current_contract_address();
-        token::TokenClient::new(&env, &token_addr)
-            .transfer(&contributor, &contract_addr, &amount);
+        token::TokenClient::new(&env, &token_addr).transfer(&contributor, &contract_addr, &amount);
 
         let new_raised = Self::apply_pledge_with_matching(&env, contributor.clone(), amount);
 
@@ -723,8 +818,11 @@ impl CrowdfundContract {
         };
 
         if commission_amount > 0 {
-            token::TokenClient::new(&env, &token_addr)
-                .transfer(&contract_addr, &affiliate, &commission_amount);
+            token::TokenClient::new(&env, &token_addr).transfer(
+                &contract_addr,
+                &affiliate,
+                &commission_amount,
+            );
 
             // Reduce the raised counter so the commission is not counted
             // as funds the organizer can withdraw.
@@ -733,9 +831,10 @@ impl CrowdfundContract {
                 .persistent()
                 .get(&DataKey::Raised)
                 .unwrap_or(0);
-            env.storage()
-                .persistent()
-                .set(&DataKey::Raised, &current_raised.saturating_sub(commission_amount));
+            env.storage().persistent().set(
+                &DataKey::Raised,
+                &current_raised.saturating_sub(commission_amount),
+            );
 
             // Accumulate affiliate earnings.
             let prev_earnings: i128 = env
@@ -1020,15 +1119,16 @@ impl CrowdfundContract {
             if m <= prev {
                 panic_with_error!(&env, CrowdfundError::InvalidGoal);
             }
-            prev = *m;
+            prev = m;
         }
 
         env.storage()
             .persistent()
             .set(&DataKey::StretchGoals, &milestones);
-        for (i, t) in milestones.iter().enumerate() {
-            StretchGoalReachedEvent { milestone_index: i as u32, threshold: *t }.publish(&env);
-        }
+
+        // No `StretchGoalReachedEvent` here: configuring a milestone is not
+        // reaching it. `check_stretch_goals` emits that once `raised` actually
+        // crosses each threshold.
     }
 
     pub fn fulfill_reward(env: Env, backer: Address) {
@@ -1678,6 +1778,58 @@ impl CrowdfundContract {
             result.push_back(pairs.get(i).unwrap());
         }
         result
+    }
+
+    // ── KYC gating ───────────────────────────────────────────────────────────
+    //
+    // `contribute` and `contribute_with_referral` gate on these two predicates.
+    // KYC is opt-in: `is_kyc_required` defaults to false, so the gate is inert
+    // until the organizer turns it on.
+
+    /// Organizer-only. When enabled, contributors must be KYC-verified before
+    /// they can pledge.
+    pub fn set_kyc_required(env: Env, organizer: Address, required: bool) {
+        Self::require_organizer(&env, &organizer);
+        env.storage()
+            .persistent()
+            .set(&DataKey::KycRequired, &required);
+        KycRequirementSetEvent {
+            organizer,
+            required,
+        }
+        .publish(&env);
+    }
+
+    /// Whether this campaign gates contributions on KYC verification.
+    pub fn is_kyc_required(env: Env) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::KycRequired)
+            .unwrap_or(false)
+    }
+
+    /// Organizer-only. Record (or revoke) a contributor's KYC verification.
+    /// The organizer is trusted to have performed verification off-chain; only
+    /// the resulting decision is stored on-chain.
+    pub fn set_kyc_verified(env: Env, organizer: Address, contributor: Address, verified: bool) {
+        Self::require_organizer(&env, &organizer);
+        env.storage()
+            .persistent()
+            .set(&DataKey::KycVerified(contributor.clone()), &verified);
+        KycVerificationSetEvent {
+            organizer,
+            contributor,
+            verified,
+        }
+        .publish(&env);
+    }
+
+    /// Whether `contributor` has been marked KYC-verified on this campaign.
+    pub fn is_kyc_verified(env: Env, contributor: Address) -> bool {
+        env.storage()
+            .persistent()
+            .get(&DataKey::KycVerified(contributor))
+            .unwrap_or(false)
     }
 
     /// Organizer-only action that publishes a detailed `CampaignStatsSnapshotEvent`

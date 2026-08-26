@@ -1,7 +1,9 @@
 use crate::components::{admin, merchant, platform_fee};
-use crate::errors::ContractError;
+use crate::errors::{ContractError, EventError};
 use crate::events;
-use crate::types::{DataKey, Event, Merchant, PlatformFeeRouteKind, Ticket};
+use crate::types::{
+    DataKey, Event, EventKey, Merchant, PlatformFeeRouteKind, Ticket, TicketListing,
+};
 use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
 
 const MAX_BPS: u32 = 10_000;
@@ -24,13 +26,13 @@ pub fn create_event(
         panic_with_error!(env, ContractError::InvalidAmount);
     }
     if *capacity == 0 {
-        panic_with_error!(env, ContractError::InvalidCapacity);
+        panic_with_error!(env, EventError::InvalidCapacity);
     }
     if *royalty_bps > MAX_BPS {
-        panic_with_error!(env, ContractError::InvalidRoyaltyBps);
+        panic_with_error!(env, EventError::InvalidRoyaltyBps);
     }
     if *event_date < env.ledger().timestamp() {
-        panic_with_error!(env, ContractError::InvalidEventDate);
+        panic_with_error!(env, EventError::InvalidEventDate);
     }
     if !admin::is_accepted_token(env, token) {
         panic_with_error!(env, ContractError::TokenNotAccepted);
@@ -50,7 +52,7 @@ pub fn create_event(
     let id = env
         .storage()
         .persistent()
-        .get(&DataKey::EventCount)
+        .get(&EventKey::EventCount)
         .unwrap_or(0u64)
         + 1;
 
@@ -72,11 +74,11 @@ pub fn create_event(
         refunds_processed: false,
     };
 
-    env.storage().persistent().set(&DataKey::Event(id), &event);
-    env.storage().persistent().set(&DataKey::EventCount, &id);
+    env.storage().persistent().set(&EventKey::Event(id), &event);
+    env.storage().persistent().set(&EventKey::EventCount, &id);
     env.storage()
         .persistent()
-        .set(&DataKey::EventTickets(id), &Vec::<u64>::new(env));
+        .set(&EventKey::EventTickets(id), &Vec::<u64>::new(env));
 
     events::publish_event_created_event(
         env,
@@ -98,8 +100,8 @@ pub fn create_event(
 pub fn get_event(env: &Env, event_id: &u64) -> Event {
     env.storage()
         .persistent()
-        .get(&DataKey::Event(*event_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::EventNotFound))
+        .get(&EventKey::Event(*event_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::EventNotFound))
 }
 
 // ── Ticket purchase via Shade payment (Issues #247 + #248) ────────────────────
@@ -114,7 +116,7 @@ pub fn purchase_ticket(env: &Env, event_id: &u64, buyer: &Address) -> u64 {
     }
 
     if event.sold >= event.capacity {
-        panic_with_error!(env, ContractError::EventSoldOut);
+        panic_with_error!(env, EventError::EventSoldOut);
     }
 
     // Re-validate token in case admin removed it after event creation.
@@ -143,7 +145,7 @@ pub fn purchase_ticket(env: &Env, event_id: &u64, buyer: &Address) -> u64 {
     let new_ticket_id = env
         .storage()
         .persistent()
-        .get(&DataKey::TicketCount)
+        .get(&EventKey::TicketCount)
         .unwrap_or(0u64)
         + 1;
 
@@ -157,27 +159,27 @@ pub fn purchase_ticket(env: &Env, event_id: &u64, buyer: &Address) -> u64 {
 
     env.storage()
         .persistent()
-        .set(&DataKey::Ticket(new_ticket_id), &ticket);
+        .set(&EventKey::Ticket(new_ticket_id), &ticket);
     env.storage()
         .persistent()
-        .set(&DataKey::TicketCount, &new_ticket_id);
+        .set(&EventKey::TicketCount, &new_ticket_id);
 
     let mut event_tickets: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::EventTickets(*event_id))
+        .get(&EventKey::EventTickets(*event_id))
         .unwrap_or_else(|| Vec::new(env));
     event_tickets.push_back(new_ticket_id);
     env.storage()
         .persistent()
-        .set(&DataKey::EventTickets(*event_id), &event_tickets);
+        .set(&EventKey::EventTickets(*event_id), &event_tickets);
 
     add_user_ticket(env, buyer, new_ticket_id);
 
     event.sold += 1;
     env.storage()
         .persistent()
-        .set(&DataKey::Event(*event_id), &event);
+        .set(&EventKey::Event(*event_id), &event);
 
     events::publish_ticket_purchased_event(
         env,
@@ -231,7 +233,7 @@ pub fn configure_dynamic_pricing(
 
     env.storage()
         .persistent()
-        .set(&DataKey::Event(event_id), &event);
+        .set(&EventKey::Event(event_id), &event);
 }
 
 pub fn get_current_ticket_price(env: &Env, event_id: u64) -> i128 {
@@ -259,15 +261,15 @@ pub fn cancel_event_and_batch_refund(env: &Env, merchant_addr: &Address, event_i
     let ticket_ids: Vec<u64> = env
         .storage()
         .persistent()
-        .get(&DataKey::EventTickets(event_id))
+        .get(&EventKey::EventTickets(event_id))
         .unwrap_or_else(|| Vec::new(env));
 
     for ticket_id in ticket_ids.iter() {
         let ticket: Ticket = env
             .storage()
             .persistent()
-            .get(&DataKey::Ticket(ticket_id))
-            .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotFound));
+            .get(&EventKey::Ticket(ticket_id))
+            .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotFound));
 
         if ticket.purchase_price > 0 {
             token_client.transfer(merchant_addr, &ticket.owner, &ticket.purchase_price);
@@ -277,7 +279,7 @@ pub fn cancel_event_and_batch_refund(env: &Env, merchant_addr: &Address, event_i
     event.refunds_processed = true;
     env.storage()
         .persistent()
-        .set(&DataKey::Event(event_id), &event);
+        .set(&EventKey::Event(event_id), &event);
 }
 
 // ── Resale with royalty (Issue #254) ──────────────────────────────────────────
@@ -293,17 +295,17 @@ pub fn resell_ticket(
     buyer.require_auth();
 
     if resale_price <= 0 {
-        panic_with_error!(env, ContractError::InvalidResalePrice);
+        panic_with_error!(env, EventError::InvalidResalePrice);
     }
 
     let mut ticket: Ticket = env
         .storage()
         .persistent()
-        .get(&DataKey::Ticket(ticket_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotFound));
+        .get(&EventKey::Ticket(ticket_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotFound));
 
     if ticket.owner != *seller {
-        panic_with_error!(env, ContractError::NotTicketOwner);
+        panic_with_error!(env, EventError::NotTicketOwner);
     }
     if seller == buyer {
         panic_with_error!(env, ContractError::NotAuthorized);
@@ -340,7 +342,7 @@ pub fn resell_ticket(
     ticket.owner = buyer.clone();
     env.storage()
         .persistent()
-        .set(&DataKey::Ticket(ticket_id), &ticket);
+        .set(&EventKey::Ticket(ticket_id), &ticket);
 
     remove_user_ticket(env, &prev_owner, ticket_id);
     add_user_ticket(env, buyer, ticket_id);
@@ -363,21 +365,21 @@ pub fn resell_ticket(
 pub fn get_ticket(env: &Env, ticket_id: u64) -> Ticket {
     env.storage()
         .persistent()
-        .get(&DataKey::Ticket(ticket_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotFound))
+        .get(&EventKey::Ticket(ticket_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotFound))
 }
 
 pub fn get_event_tickets(env: &Env, event_id: u64) -> Vec<u64> {
     env.storage()
         .persistent()
-        .get(&DataKey::EventTickets(event_id))
+        .get(&EventKey::EventTickets(event_id))
         .unwrap_or_else(|| Vec::new(env))
 }
 
 pub fn get_user_tickets(env: &Env, user: &Address) -> Vec<u64> {
     env.storage()
         .persistent()
-        .get(&DataKey::UserTickets(user.clone()))
+        .get(&EventKey::UserTickets(user.clone()))
         .unwrap_or_else(|| Vec::new(env))
 }
 
@@ -393,7 +395,7 @@ fn merchant_id_to_address(env: &Env, merchant_id: u64) -> Address {
 }
 
 fn add_user_ticket(env: &Env, user: &Address, ticket_id: u64) {
-    let key = DataKey::UserTickets(user.clone());
+    let key = EventKey::UserTickets(user.clone());
     let mut list: Vec<u64> = env
         .storage()
         .persistent()
@@ -404,7 +406,7 @@ fn add_user_ticket(env: &Env, user: &Address, ticket_id: u64) {
 }
 
 fn remove_user_ticket(env: &Env, user: &Address, ticket_id: u64) {
-    let key = DataKey::UserTickets(user.clone());
+    let key = EventKey::UserTickets(user.clone());
     let list: Vec<u64> = env
         .storage()
         .persistent()
@@ -460,7 +462,7 @@ pub fn purchase_tickets_bulk(
     let mut event: Event = env
         .storage()
         .persistent()
-        .get(&DataKey::Event(*event_id))
+        .get(&EventKey::Event(*event_id))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::InvoiceNotFound));
 
     if event.cancelled {
@@ -483,7 +485,7 @@ pub fn purchase_tickets_bulk(
     event.sold = event.sold.saturating_add(quantity);
     env.storage()
         .persistent()
-        .set(&DataKey::Event(*event_id), &event);
+        .set(&EventKey::Event(*event_id), &event);
 }
 
 fn is_event_merchant(env: &Env, event: &Event, merchant_addr: &Address) -> bool {
@@ -518,13 +520,13 @@ pub fn list_ticket(env: &Env, seller: &Address, ticket_id: u64, price: i128) {
     seller.require_auth();
 
     if price <= 0 {
-        panic_with_error!(env, ContractError::InvalidResalePrice);
+        panic_with_error!(env, EventError::InvalidResalePrice);
     }
 
     let ticket = get_ticket(env, ticket_id);
 
     if ticket.owner != *seller {
-        panic_with_error!(env, ContractError::NotTicketOwner);
+        panic_with_error!(env, EventError::NotTicketOwner);
     }
 
     let event = get_event(env, &ticket.event_id);
@@ -533,8 +535,12 @@ pub fn list_ticket(env: &Env, seller: &Address, ticket_id: u64, price: i128) {
         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
     }
 
-    if env.storage().persistent().has(&DataKey::TicketListing(ticket_id)) {
-        panic_with_error!(env, ContractError::TicketAlreadyListed);
+    if env
+        .storage()
+        .persistent()
+        .has(&EventKey::TicketListing(ticket_id))
+    {
+        panic_with_error!(env, EventError::TicketAlreadyListed);
     }
 
     let listing = TicketListing {
@@ -545,9 +551,15 @@ pub fn list_ticket(env: &Env, seller: &Address, ticket_id: u64, price: i128) {
 
     env.storage()
         .persistent()
-        .set(&DataKey::TicketListing(ticket_id), &listing);
+        .set(&EventKey::TicketListing(ticket_id), &listing);
 
-    events::publish_ticket_listed_event(env, ticket_id, seller.clone(), price, env.ledger().timestamp());
+    events::publish_ticket_listed_event(
+        env,
+        ticket_id,
+        seller.clone(),
+        price,
+        env.ledger().timestamp(),
+    );
 }
 
 pub fn cancel_ticket_listing(env: &Env, seller: &Address, ticket_id: u64) {
@@ -556,8 +568,8 @@ pub fn cancel_ticket_listing(env: &Env, seller: &Address, ticket_id: u64) {
     let listing: TicketListing = env
         .storage()
         .persistent()
-        .get(&DataKey::TicketListing(ticket_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotListed));
+        .get(&EventKey::TicketListing(ticket_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotListed));
 
     if listing.seller != *seller {
         panic_with_error!(env, ContractError::NotAuthorized);
@@ -565,9 +577,14 @@ pub fn cancel_ticket_listing(env: &Env, seller: &Address, ticket_id: u64) {
 
     env.storage()
         .persistent()
-        .remove(&DataKey::TicketListing(ticket_id));
+        .remove(&EventKey::TicketListing(ticket_id));
 
-    events::publish_ticket_listing_cancelled_event(env, ticket_id, seller.clone(), env.ledger().timestamp());
+    events::publish_ticket_listing_cancelled_event(
+        env,
+        ticket_id,
+        seller.clone(),
+        env.ledger().timestamp(),
+    );
 }
 
 pub fn buy_ticket_from_listing(env: &Env, buyer: &Address, ticket_id: u64) {
@@ -576,8 +593,8 @@ pub fn buy_ticket_from_listing(env: &Env, buyer: &Address, ticket_id: u64) {
     let listing: TicketListing = env
         .storage()
         .persistent()
-        .get(&DataKey::TicketListing(ticket_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotListed));
+        .get(&EventKey::TicketListing(ticket_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotListed));
 
     if listing.seller == *buyer {
         panic_with_error!(env, ContractError::NotAuthorized);
@@ -586,7 +603,7 @@ pub fn buy_ticket_from_listing(env: &Env, buyer: &Address, ticket_id: u64) {
     let mut ticket = get_ticket(env, ticket_id);
 
     if ticket.owner != listing.seller {
-        panic_with_error!(env, ContractError::NotTicketOwner);
+        panic_with_error!(env, EventError::NotTicketOwner);
     }
 
     let event = get_event(env, &ticket.event_id);
@@ -621,14 +638,14 @@ pub fn buy_ticket_from_listing(env: &Env, buyer: &Address, ticket_id: u64) {
     ticket.owner = buyer.clone();
     env.storage()
         .persistent()
-        .set(&DataKey::Ticket(ticket_id), &ticket);
+        .set(&EventKey::Ticket(ticket_id), &ticket);
 
     remove_user_ticket(env, &prev_owner, ticket_id);
     add_user_ticket(env, buyer, ticket_id);
 
     env.storage()
         .persistent()
-        .remove(&DataKey::TicketListing(ticket_id));
+        .remove(&EventKey::TicketListing(ticket_id));
 
     events::publish_ticket_listing_sold_event(
         env,
@@ -644,7 +661,6 @@ pub fn buy_ticket_from_listing(env: &Env, buyer: &Address, ticket_id: u64) {
 pub fn get_ticket_listing(env: &Env, ticket_id: u64) -> TicketListing {
     env.storage()
         .persistent()
-        .get(&DataKey::TicketListing(ticket_id))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::TicketNotListed))
+        .get(&EventKey::TicketListing(ticket_id))
+        .unwrap_or_else(|| panic_with_error!(env, EventError::TicketNotListed))
 }
-

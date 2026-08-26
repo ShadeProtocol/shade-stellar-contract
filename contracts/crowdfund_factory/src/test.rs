@@ -73,7 +73,10 @@ fn setup_governance(env: &Env) -> (CrowdfundFactoryClient<'static>, Address, Add
 
     let factory_id = env.register(CrowdfundFactory, ());
     let factory = CrowdfundFactoryClient::new(env, &factory_id);
-    let crowdfund_wasm_hash = env.deployer().upload_contract_wasm(crowdfund_wasm::WASM);
+    // `initialize` only records the hash; these tests never deploy, so a fake
+    // hash avoids depending on a built .wasm artifact (which is gitignored).
+    // Same pattern as test_deploy_campaign_tracks_active_protocols above.
+    let crowdfund_wasm_hash = BytesN::from_array(env, &[7u8; 32]);
     factory.initialize(&crowdfund_wasm_hash);
 
     let admin = Address::generate(env);
@@ -112,7 +115,10 @@ fn test_propose_campaign_without_governance_panics() {
 
     let factory_id = env.register(CrowdfundFactory, ());
     let factory = CrowdfundFactoryClient::new(&env, &factory_id);
-    let crowdfund_wasm_hash = env.deployer().upload_contract_wasm(crowdfund_wasm::WASM);
+    // `initialize` only records the hash; these tests never deploy, so a fake
+    // hash avoids depending on a built .wasm artifact (which is gitignored).
+    // Same pattern as test_deploy_campaign_tracks_active_protocols above.
+    let crowdfund_wasm_hash = BytesN::from_array(&env, &[7u8; 32]);
     factory.initialize(&crowdfund_wasm_hash);
 
     let organizer = Address::generate(&env);
@@ -260,7 +266,15 @@ fn test_cannot_approve_already_approved_proposal() {
     factory.approve_campaign_proposal(&admin, &proposal_id);
 }
 
+// Ignored: this is the only governance test that performs a real on-chain
+// deploy, so it needs an uploaded crowdfund WASM. It originally referenced
+// `crowdfund_wasm::WASM`, a module that does not exist and is generated
+// nowhere in this repo, so it has never run. A native test cannot produce a
+// WASM hash for a Rust-defined contract, and `*.wasm` artifacts are gitignored
+// (CI's test job also runs before the build job). Re-enable by committing a
+// crowdfund WASM fixture and pulling it in with `contractimport!`.
 #[test]
+#[ignore = "needs an uploaded crowdfund WASM; see comment above"]
 fn test_execute_approved_proposal_deploys_campaign() {
     let env = Env::default();
     let (factory, _factory_id, admin) = setup_governance(&env);
