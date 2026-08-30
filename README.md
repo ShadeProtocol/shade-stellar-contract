@@ -71,6 +71,10 @@ cargo build --target wasm32-unknown-unknown --release
 ```
 
 
+## Documentation
+
+Full documentation, including architecture, per-contract references, concept deep dives, security notes, and operational runbooks, lives under [`docs/`](docs/README.md).
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

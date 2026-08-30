@@ -122,6 +122,10 @@ docs: update README with installation instructions
 4. **Fill PR Template**: Complete all relevant sections in the PR template
 5. **Request Review**: Request review from maintainers
 
+## Documentation Contributions
+
+If your PR adds or changes a page under `docs/`, follow the [Documentation Style Guide](docs/contributing/documentation-style-guide.md) and use the matching template from [`docs/contributing/templates/`](docs/contributing/templates/). Every docs PR must satisfy the [review checklist](docs/contributing/documentation-style-guide.md#review-checklist) before it can be merged.
+
 ### PR Checklist
 
 Before submitting a PR, ensure:
