@@ -140,7 +140,7 @@ Nine crates live under [`contracts/`](../../contracts/). `shade` is the hub; the
 - [Prerequisites and Local Toolchain Setup](prerequisites.md) — install Rust, the WASM target, and the Stellar CLI at the versions this workspace pins.
 - [Building the Contracts](building.md) — compile the workspace and produce an optimized deployment WASM. Quickstart deployment against a local network is *planned*.
 - [Running the Test Suite](running-tests.md) — how the tests are laid out and how to run a subset.
-- [Architecture](../architecture/README.md) — how the crates, factories, and shared components fit together.
+- [Architecture](../architecture/README.md) — how the crates, factories, and shared components fit together, including [Upgradeability](../architecture/upgradeability.md).
 - [Protocol Glossary](../glossary.md) — every domain and Soroban term used across these docs.
 
 ← [Back to Getting Started](README.md)
