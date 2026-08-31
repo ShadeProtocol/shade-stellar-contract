@@ -50,16 +50,13 @@ The project is organized as a Cargo workspace containing Soroban smart contracts
 
 ### Project Structure
 
+The repository is structured as a Cargo workspace with modular crates. For a detailed breakdown of crate roles, dependencies, and file standards, see the [Workspace and Crate Layout Guide](docs/architecture/workspace-layout.md).
+
 ```text
-.
-├── contracts
-│   └── shade           # Main Shade Protocol contract logic
-│       ├── src
-│       │   ├── lib.rs
-│       │   └── ...
-│       └── Cargo.toml
-├── Cargo.toml          # Workspace configuration
-└── README.md
+shade-stellar-contract/
+├── contracts/          # Smart contract crates (shade hub, account, escrow, ticketing, crowdfund)
+├── docs/               # Architecture, quickstart tutorials, and contract references
+└── scripts/            # Deployment and testing automation
 ```
 
 ### Building Contracts
