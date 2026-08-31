@@ -126,6 +126,10 @@ docs: update README with installation instructions
 
 If your PR adds or changes a page under `docs/`, follow the [Documentation Style Guide](docs/contributing/documentation-style-guide.md) and use the matching template from [`docs/contributing/templates/`](docs/contributing/templates/). Every docs PR must satisfy the [review checklist](docs/contributing/documentation-style-guide.md#review-checklist) before it can be merged.
 
+### Keeping reference docs in sync
+
+Any PR that changes `ShadeTrait` (adds, removes, or renames a function) must also update `docs/reference/shade-interface.md` in the same PR. Similarly, any change to a public type in `contracts/shade/src/types.rs` must update `docs/reference/data-types.md`. This ensures the API reference stays accurate.
+
 ### PR Checklist
 
 Before submitting a PR, ensure:
