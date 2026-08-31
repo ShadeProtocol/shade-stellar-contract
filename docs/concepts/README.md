@@ -6,7 +6,10 @@ Deep dives into individual mechanisms, written from the [concept template](../co
 - Time-locked fee updates — *planned*.
 - Escrow and arbiter release — *planned*.
 - Subscriptions and recurring billing — *planned*.
-- Dynamic ticket pricing — *planned*.
+- [Event ticketing, dynamic pricing, and resale](./event-ticketing.md)
+- [Merchant analytics and transaction history](./analytics-and-history.md)
+- [Auto-withdrawal and merchant settlement](./auto-withdrawal.md)
+- [Payment payloads, swap routing, and the cross-chain bridge placeholder](./payment-payloads-and-routing.md)
 - Fiat-pegged campaign goals and oracle pricing — *planned*.
 - Creator fund vesting — *planned*.
 - Dynamic hard-cap voting — *planned*.
