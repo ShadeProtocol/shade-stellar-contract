@@ -1,6 +1,9 @@
 use crate::components::{admin, merchant, reentrancy};
 use crate::errors::{CampaignError, ContractError};
 use crate::events;
+use crate::types::{
+    Campaign, CampaignCategory, CampaignFilter, CampaignStatus, CampaignTag, DataKey,
+};
 use crate::types::{Campaign, CampaignCategory, CampaignFilter, CampaignKey, CampaignTag};
 use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
 
@@ -351,6 +354,12 @@ pub fn create_campaign(
         raised_amount: 0,
         active: true,
         created_at: env.ledger().timestamp(),
+        status: CampaignStatus::Active,
+        total_slashed: 0,
+        penalty_count: 0,
+        fee_waiver_bps: 0,
+        discount_bps: 0,
+        stake_required: 0,
     };
 
     env.storage()

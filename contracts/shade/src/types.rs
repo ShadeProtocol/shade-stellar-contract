@@ -316,6 +316,39 @@ pub enum MultiSigKey {
     WithdrawalProposalCount,
     /// Whether a particular signer has approved a particular proposal.
     WithdrawalApproval(u64, Address),
+    // --- Escrow system ---
+    Escrow(u64),
+    EscrowCount,
+    // --- Campaign fundraising engine (staking/slashing/penalties) ---
+    StakeableCampaign(u64),
+    StakeableCampaignCount,
+    CampaignParticipants(u64),
+    CampaignParticipant(u64, Address),
+    CampaignAffiliate(u64, Address),
+    // --- Financial penalties for malicious campaigns (#360) ---
+    /// A report filed against a campaign for malicious behavior.
+    CampaignPenaltyReport(u64),
+    /// Total number of penalty reports ever created.
+    CampaignPenaltyReportCount,
+    /// Per-campaign penalty state tracking (total slashed, penalty count).
+    CampaignPenaltyState(u64),
+    // --- NFT reward system ---
+    NftCollection(u64),
+    NftCollectionCount,
+    Nft(u64),
+    NftCount,
+    CollectionNfts(u64),
+    UserNfts(Address),
+    NftClaimed(u64, Address),
+    // --- Backer rewards (crowdfunding tiers & perks) ---
+    BackerCampaign(u64),
+    BackerCampaignCount,
+    BackerRewardTiers(u64),
+    BackerPledge(u64, Address),
+    BackerSelectedTier(u64, Address),
+    BackerRewardFulfilled(u64, Address),
+    BackerPerkClaimed(u64, Address, u32),
+    BackerTierBackerCount(u64, u32),
 }
 
 // ── Core records ──────────────────────────────────────────────────────────────
@@ -637,7 +670,136 @@ pub struct Ticket {
     pub purchase_price: i128,
 }
 
+// ── Campaign system (consolidated) ────────────────────────────────────────────
+
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum CampaignStatus {
+    Active = 0,
+    Ended = 1,
+    Cancelled = 2,
+    /// Campaign has been reported and is under review for malicious behavior.
+    UnderReview = 3,
+    /// Campaign has been confirmed malicious and penalized.
+    Penalized = 4,
+}
+
+/// Status of a penalty report filed against a campaign.
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum PenaltyReportStatus {
+    /// Report filed, awaiting admin review.
+    Pending = 0,
+    /// Admin confirmed the report; penalties applied.
+    Upheld = 1,
+    /// Admin dismissed the report; no penalties.
+    Dismissed = 2,
+}
+
+/// On-chain fundraising / promotional campaign created by a merchant.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Campaign {
+    pub id: u64,
+    pub merchant_id: u64,
+    pub merchant: Address,
+    pub title: String,
+    pub description: String,
+    pub category_id: u64,
+    pub tags: Vec<u64>,
+    /// Fundraising goal in token base units. 0 = open-ended (no specific goal).
+    pub goal_amount: i128,
+    pub token: Address,
+    pub deadline: u64,
+    pub raised_amount: i128,
+    pub active: bool,
+    pub created_at: u64,
+    /// Current lifecycle status.
+    pub status: CampaignStatus,
+    /// Total amount slashed from this campaign via financial penalties.
+    pub total_slashed: i128,
+    /// Number of penalty reports upheld against this campaign.
+    pub penalty_count: u32,
+    /// Fee waiver in basis points (0-10,000).
+    pub fee_waiver_bps: u32,
+    /// Discount in basis points for campaign participants (0-10,000).
+    pub discount_bps: u32,
+    /// Minimum stake required to participate.
+    pub stake_required: i128,
+}
+
+/// A timestamped update / news post published by the merchant on an active campaign.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignAnnouncement {
+    pub id: u64,
+    pub campaign_id: u64,
+    pub title: String,
+    pub content: String,
+    pub posted_at: u64,
+}
 // ── Payment routing ───────────────────────────────────────────────────────────
+
+/// A report filed against a campaign alleging malicious or fraudulent behavior.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignPenaltyReport {
+    pub id: u64,
+    pub campaign_id: u64,
+    /// Address that filed the report.
+    pub reporter: Address,
+    /// Reason / description of the alleged malicious behavior.
+    pub reason: String,
+    /// Amount suggested to be slashed as a penalty.
+    pub suggested_penalty: i128,
+    /// Current status of the report.
+    pub status: PenaltyReportStatus,
+    /// Ledger timestamp when the report was filed.
+    pub filed_at: u64,
+    /// Ledger timestamp when the report was resolved (upheld or dismissed).
+    pub resolved_at: Option<u64>,
+    /// If upheld, the address of the admin who resolved it.
+    pub resolved_by: Option<Address>,
+    /// If upheld, the actual penalty amount applied (may differ from suggested).
+    pub applied_penalty: Option<i128>,
+}
+
+/// Per-campaign penalty state tracking.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignPenaltyState {
+    pub campaign_id: u64,
+    pub total_slashed: i128,
+    pub report_count: u32,
+    pub upheld_count: u32,
+    pub last_penalty_at: Option<u64>,
+}
+
+/// Campaign participant for staking/slashing system.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignParticipant {
+    pub campaign_id: u64,
+    pub participant: Address,
+    pub contributed: i128,
+    pub staked: i128,
+    pub slashed: i128,
+    pub commissions_paid: i128,
+    pub score: i128,
+}
+
+/// Affiliate registered for a campaign.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignAffiliate {
+    pub campaign_id: u64,
+    pub affiliate: Address,
+    pub commission_bps: u32,
+    pub total_paid: i128,
+    pub active: bool,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1721,4 +1883,25 @@ pub struct BackerKycStatus {
     pub total_backed_amount: i128,
     /// Ledger timestamp of the last time this record was refreshed.
     pub last_kyc_check: u64,
+}
+
+/// Donor info for leaderboard tracking.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DonorInfo {
+    pub donor: Address,
+    pub amount: i128,
+}
+
+/// A pledge made by a contributor to a crowdfunding campaign.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Pledge {
+    pub id: u64,
+    pub campaign_id: u64,
+    pub contributor: Address,
+    pub amount: i128,
+    pub token: Address,
+    pub refunded: bool,
+    pub created_at: u64,
 }

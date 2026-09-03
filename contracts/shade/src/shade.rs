@@ -1,4 +1,15 @@
 use crate::components::{
+    access_control as access_control_component,
+    admin as admin_component,
+    campaign as campaign_component,
+    core as core_component,
+    event as event_component,
+    history as history_component,
+    invoice as invoice_component,
+    merchant as merchant_component,
+    pausable as pausable_component,
+    subscription as subscription_component,
+    upgrade as upgrade_component,
     access_control as access_control_component, admin as admin_component,
     analytics as analytics_component, auto_withdrawal as auto_withdrawal_component,
     bridge as bridge_component, campaign as campaign_component, campaigns as campaigns_component,
@@ -15,6 +26,11 @@ use crate::errors::{ContractError, MultiSigError};
 use crate::events;
 use crate::shade_interface::ShadeTrait;
 use crate::types::{
+    Campaign, CampaignAffiliate, CampaignParticipant, ContractInfo,
+    CrossChainBridgePayload, DataKey, Event, Invoice, InvoiceFilter,
+    Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
+    OracleConfig, PaymentPayload, PendingFee, Role,
+    Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction,
     AnalyticsExport, BackerCampaign, BackerRewardTier, BridgeDeposit, Campaign, CampaignAffiliate,
     CampaignCategory, CampaignFiatGoal, CampaignFilter, CampaignParticipant, CampaignStats,
     CampaignTag, ContractInfo, CreatorVesting, CrossChainBridgePayload, DataKey, DonorInfo, Escrow,
@@ -33,14 +49,13 @@ pub struct Shade;
 #[contractimpl]
 impl ShadeTrait for Shade {
     fn initialize(env: Env, admin: Address) {
-        if env.storage().persistent().has(&DataKey::Admin) {
+        if env.storage().persistent().has(&DataKey::ContractInfo) {
             panic_with_error!(&env, ContractError::AlreadyInitialized);
         }
         let contract_info = ContractInfo {
             admin: admin.clone(),
             timestamp: env.ledger().timestamp(),
         };
-        env.storage().persistent().set(&DataKey::Admin, &admin);
         env.storage()
             .persistent()
             .set(&DataKey::PlatformAccount, &admin);
@@ -195,14 +210,7 @@ impl ShadeTrait for Shade {
         expires_at: Option<u64>,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        invoice_component::create_invoice_draft(
-            &env,
-            &merchant,
-            &description,
-            amount,
-            &token,
-            expires_at,
-        )
+        invoice_component::create_invoice_draft(&env, &merchant, &description, amount, &token, expires_at)
     }
 
     fn finalize_invoice(env: Env, merchant: Address, invoice_id: u64) {
@@ -223,14 +231,7 @@ impl ShadeTrait for Shade {
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
         invoice_component::create_invoice_signed(
-            &env,
-            &caller,
-            &merchant,
-            &description,
-            amount,
-            &token,
-            &nonce,
-            &signature,
+            &env, &caller, &merchant, &description, amount, &token, &nonce, &signature,
         )
     }
 
@@ -245,11 +246,6 @@ impl ShadeTrait for Shade {
     fn refund_invoice(env: Env, merchant: Address, invoice_id: u64) {
         pausable_component::assert_not_paused(&env);
         invoice_component::refund_invoice(&env, &merchant, invoice_id);
-    }
-
-    fn claim_refund(env: Env, buyer: Address, invoice_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        invoice_component::claim_refund(&env, &buyer, invoice_id);
     }
 
     fn set_merchant_key(env: Env, merchant: Address, key: BytesN<32>) {
@@ -400,7 +396,7 @@ impl ShadeTrait for Shade {
         invoice_component::pay_invoice_partial(&env, &payer, invoice_id, amount);
     }
 
-    fn validate_payment_payload(env: Env, payload: crate::types::PaymentPayload) {
+    fn validate_payment_payload(env: Env, payload: PaymentPayload) {
         crate::components::payment::validate_payment_payload(&env, &payload);
     }
 
@@ -439,14 +435,7 @@ impl ShadeTrait for Shade {
         interval: u64,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        subscription_component::create_subscription_plan(
-            &env,
-            merchant,
-            description,
-            token,
-            amount,
-            interval,
-        )
+        subscription_component::create_subscription_plan(&env, merchant, description, token, amount, interval)
     }
 
     fn get_subscription_plan(env: Env, plan_id: u64) -> SubscriptionPlan {
@@ -514,108 +503,8 @@ impl ShadeTrait for Shade {
         events::publish_bridge_placeholder_event(&env, caller, payload, env.ledger().timestamp());
     }
 
-    // ── Bridge listener / external deposits ──────────────────────────────────
+    // ── Event ticketing ───────────────────────────────────────────────────────
 
-    fn register_bridge_listener(env: Env, admin: Address, listener: Address) {
-        pausable_component::assert_not_paused(&env);
-        bridge_component::register_bridge_listener(&env, &admin, &listener);
-    }
-
-    fn remove_bridge_listener(env: Env, admin: Address, listener: Address) {
-        pausable_component::assert_not_paused(&env);
-        bridge_component::remove_bridge_listener(&env, &admin, &listener);
-    }
-
-    fn is_bridge_listener(env: Env, listener: Address) -> bool {
-        bridge_component::is_bridge_listener(&env, &listener)
-    }
-
-    fn record_bridge_deposit(
-        env: Env,
-        listener: Address,
-        source_chain: String,
-        source_tx_id: BytesN<32>,
-        token: Address,
-        amount: i128,
-        recipient: Address,
-    ) -> u64 {
-        pausable_component::assert_not_paused(&env);
-        bridge_component::record_bridge_deposit(
-            &env,
-            &listener,
-            source_chain,
-            source_tx_id,
-            token,
-            amount,
-            recipient,
-        )
-    }
-
-    fn get_bridge_deposit(env: Env, deposit_id: u64) -> Option<BridgeDeposit> {
-        bridge_component::get_bridge_deposit(&env, deposit_id)
-    }
-
-    fn is_bridge_deposit_processed(env: Env, source_tx_id: BytesN<32>) -> bool {
-        bridge_component::is_bridge_deposit_processed(&env, &source_tx_id)
-    }
-
-    fn get_bridge_deposit_count(env: Env) -> u64 {
-        bridge_component::get_bridge_deposit_count(&env)
-    }
-
-    fn get_bridge_credit(env: Env, recipient: Address, token: Address) -> i128 {
-        bridge_component::get_bridge_credit(&env, &recipient, &token)
-    }
-
-    // ── DAO governance for protocol upgrades ─────────────────────────────────
-
-    fn add_gov_member(env: Env, admin: Address, member: Address) {
-        pausable_component::assert_not_paused(&env);
-        governance_component::add_gov_member(&env, &admin, &member);
-    }
-
-    fn remove_gov_member(env: Env, admin: Address, member: Address) {
-        pausable_component::assert_not_paused(&env);
-        governance_component::remove_gov_member(&env, &admin, &member);
-    }
-
-    fn is_gov_member(env: Env, member: Address) -> bool {
-        governance_component::is_gov_member(&env, &member)
-    }
-
-    fn get_gov_member_count(env: Env) -> u32 {
-        governance_component::get_gov_member_count(&env)
-    }
-
-    fn set_governance_config(env: Env, admin: Address, voting_period: u64, quorum_bps: u32) {
-        pausable_component::assert_not_paused(&env);
-        governance_component::set_governance_config(&env, &admin, voting_period, quorum_bps);
-    }
-
-    fn propose_upgrade(env: Env, proposer: Address, wasm_hash: BytesN<32>) -> u64 {
-        pausable_component::assert_not_paused(&env);
-        governance_component::propose_upgrade(&env, &proposer, wasm_hash)
-    }
-
-    fn vote_on_upgrade(env: Env, voter: Address, proposal_id: u64, approve: bool) {
-        pausable_component::assert_not_paused(&env);
-        governance_component::vote_on_upgrade(&env, &voter, proposal_id, approve);
-    }
-
-    fn finalize_upgrade(env: Env, caller: Address, proposal_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        governance_component::finalize_upgrade(&env, &caller, proposal_id);
-    }
-
-    fn get_upgrade_proposal(env: Env, proposal_id: u64) -> Option<UpgradeProposal> {
-        governance_component::get_upgrade_proposal(&env, proposal_id)
-    }
-
-    fn has_voted_on_upgrade(env: Env, proposal_id: u64, member: Address) -> bool {
-        governance_component::has_voted(&env, proposal_id, &member)
-    }
-
-    // --- Event ticketing system ---
     #[allow(clippy::too_many_arguments)]
     fn create_event(
         env: Env,
@@ -628,21 +517,14 @@ impl ShadeTrait for Shade {
         royalty_bps: u32,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::create_event(
-            &env,
-            &merchant,
-            &name,
-            &ticket_price,
-            &token,
-            &capacity,
-            &event_date,
-            &royalty_bps,
+        event_component::create_event(
+            &env, &merchant, &name, &ticket_price, &token, &capacity, &event_date, &royalty_bps,
         )
     }
 
     fn purchase_ticket(env: Env, event_id: u64, buyer: Address) -> u64 {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::purchase_ticket(&env, &event_id, &buyer)
+        event_component::purchase_ticket(&env, &event_id, &buyer)
     }
 
     fn configure_dynamic_pricing(
@@ -654,51 +536,41 @@ impl ShadeTrait for Shade {
         late_markup_bps: u32,
     ) {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::configure_dynamic_pricing(
-            &env,
-            &merchant,
-            event_id,
-            early_bird_end,
-            early_bird_discount_bps,
-            late_markup_bps,
+        event_component::configure_dynamic_pricing(
+            &env, &merchant, event_id, early_bird_end, early_bird_discount_bps, late_markup_bps,
         );
     }
 
     fn get_current_ticket_price(env: Env, event_id: u64) -> i128 {
-        crate::components::event::get_current_ticket_price(&env, event_id)
+        event_component::get_current_ticket_price(&env, event_id)
     }
 
     fn cancel_event_and_batch_refund(env: Env, merchant: Address, event_id: u64) {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::cancel_event_and_batch_refund(&env, &merchant, event_id);
+        event_component::cancel_event_and_batch_refund(&env, &merchant, event_id);
     }
 
-    fn resell_ticket(
-        env: Env,
-        seller: Address,
-        buyer: Address,
-        ticket_id: u64,
-        resale_price: i128,
-    ) {
+    fn resell_ticket(env: Env, seller: Address, buyer: Address, ticket_id: u64, resale_price: i128) {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::resell_ticket(&env, &seller, &buyer, ticket_id, resale_price);
+        event_component::resell_ticket(&env, &seller, &buyer, ticket_id, resale_price);
     }
 
     fn get_event(env: Env, event_id: u64) -> Event {
-        crate::components::event::get_event(&env, &event_id)
+        event_component::get_event(&env, &event_id)
     }
 
     fn get_ticket(env: Env, ticket_id: u64) -> Ticket {
-        crate::components::event::get_ticket(&env, ticket_id)
+        event_component::get_ticket(&env, ticket_id)
     }
 
     fn get_event_tickets(env: Env, event_id: u64) -> Vec<u64> {
-        crate::components::event::get_event_tickets(&env, event_id)
+        event_component::get_event_tickets(&env, event_id)
     }
 
     fn get_user_tickets(env: Env, user: Address) -> Vec<u64> {
-        crate::components::event::get_user_tickets(&env, &user)
+        event_component::get_user_tickets(&env, &user)
     }
+
     fn purchase_tickets_bulk(
         env: Env,
         event_id: u64,
@@ -708,15 +580,12 @@ impl ShadeTrait for Shade {
         merchant_account: Address,
     ) {
         pausable_component::assert_not_paused(&env);
-        crate::components::event::purchase_tickets_bulk(
-            &env,
-            &event_id,
-            &buyer,
-            quantity,
-            &shade_token,
-            &merchant_account,
+        event_component::purchase_tickets_bulk(
+            &env, &event_id, &buyer, quantity, &shade_token, &merchant_account,
         );
     }
+
+    // ── Token analytics ───────────────────────────────────────────────────────
 
     fn get_token_analytics(env: Env, token: Address) -> TokenAnalytics {
         admin_component::get_token_analytics(&env, &token)
@@ -738,18 +607,9 @@ impl ShadeTrait for Shade {
         admin_component::get_token_market_share(&env, &token)
     }
 
-    fn create_escrow(
-        env: Env,
-        seller: Address,
-        buyer: Address,
-        token: Address,
-        amount: i128,
-        invoice_id: Option<u64>,
-    ) -> u64 {
-        pausable_component::assert_not_paused(&env);
-        escrow_component::create_escrow(&env, &seller, &buyer, &token, amount, invoice_id)
-    }
+    // ── Campaign system with financial penalties (#360) ────────────────────────
 
+    fn create_campaign(
     fn get_escrow(env: Env, escrow_id: u64) -> Escrow {
         escrow_component::get_escrow(&env, escrow_id)
     }
@@ -849,23 +709,34 @@ impl ShadeTrait for Shade {
     }
     fn create_backer_campaign(
         env: Env,
-        merchant: Address,
+        caller: Address,
         name: String,
-        token: Address,
-        deadline: u64,
+        charity: bool,
+        fee_waiver_bps: u32,
+        discount_bps: u32,
+        stake_required: i128,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
-        crate::components::backer_rewards::create_backer_campaign(
-            &env, merchant, name, token, deadline,
+        campaign_component::create_campaign(
+            &env, &caller, &name, charity, fee_waiver_bps, discount_bps, stake_required,
         )
     }
 
-    fn get_backer_campaign(env: Env, campaign_id: u64) -> BackerCampaign {
-        crate::components::backer_rewards::get_backer_campaign(&env, campaign_id)
+    fn configure_campaign_fee_policy(
+        env: Env,
+        caller: Address,
+        campaign_id: u64,
+        fee_waiver_bps: u32,
+        discount_bps: u32,
+    ) {
+        pausable_component::assert_not_paused(&env);
+        campaign_component::configure_campaign_fee_policy(
+            &env, &caller, campaign_id, fee_waiver_bps, discount_bps,
+        );
     }
 
-    fn set_backer_reward_tiers(
-        env: Env,
+    fn calculate_campaign_discounted_amount(env: Env, campaign_id: u64, amount: i128) -> i128 {
+        campaign_component::calculate_campaign_discounted_amount(&env, campaign_id, amount)
         merchant: Address,
         campaign_id: u64,
         tiers: Vec<BackerRewardTier>,
@@ -939,13 +810,12 @@ impl ShadeTrait for Shade {
         )
     }
 
-    // ── Multi-sig massive withdrawal ─────────────────────────────────────────
-
-    fn set_multisig_threshold(env: Env, admin: Address, token: Address, threshold: i128) {
+    fn record_campaign_contribution(env: Env, caller: Address, campaign_id: u64, amount: i128) {
         pausable_component::assert_not_paused(&env);
-        multisig_component::set_multisig_threshold(&env, &admin, &token, threshold);
+        campaign_component::record_campaign_contribution(&env, &caller, campaign_id, amount);
     }
 
+    fn stake_campaign(env: Env, caller: Address, campaign_id: u64, amount: i128) {
     fn get_multisig_threshold(env: Env, token: Address) -> i128 {
         multisig_component::get_multisig_threshold(&env, &token)
             .unwrap_or_else(|| panic_with_error!(&env, MultiSigError::ThresholdNotSet))
@@ -953,65 +823,10 @@ impl ShadeTrait for Shade {
 
     fn configure_multisig(env: Env, admin: Address, signers: Vec<Address>, quorum: u32) {
         pausable_component::assert_not_paused(&env);
-        multisig_component::configure_multisig(&env, &admin, signers, quorum);
+        campaign_component::stake_campaign(&env, &caller, campaign_id, amount);
     }
 
-    fn propose_withdrawal(
-        env: Env,
-        merchant: Address,
-        token: Address,
-        amount: i128,
-        recipient: Address,
-        note: String,
-    ) -> u64 {
-        pausable_component::assert_not_paused(&env);
-        multisig_component::propose_withdrawal(&env, &merchant, &token, amount, &recipient, note)
-    }
-
-    fn approve_withdrawal(env: Env, signer: Address, proposal_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        multisig_component::approve_withdrawal(&env, &signer, proposal_id);
-    }
-
-    fn cancel_withdrawal(env: Env, caller: Address, proposal_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        multisig_component::cancel_withdrawal(&env, &caller, proposal_id);
-    }
-
-    fn get_withdrawal_proposal(env: Env, proposal_id: u64) -> WithdrawalProposal {
-        multisig_component::get_withdrawal_proposal(&env, proposal_id)
-    }
-
-    fn has_approved_withdrawal(env: Env, signer: Address, proposal_id: u64) -> bool {
-        multisig_component::has_approved(&env, &signer, proposal_id)
-    }
-
-    fn get_withdrawal_proposal_count(env: Env) -> u64 {
-        multisig_component::get_proposal_count(&env)
-    }
-
-    // ── On-chain search and filtering utilities (#353) ───────────────────────
-
-    fn search_invoices_paginated(
-        env: Env,
-        caller: Address,
-        filter: InvoiceFilter,
-        cursor: u64,
-        page_size: u32,
-    ) -> InvoicePage {
-        search_component::search_invoices_paginated(&env, &caller, filter, cursor, page_size)
-    }
-
-    fn search_merchants_paginated(
-        env: Env,
-        filter: MerchantFilter,
-        cursor: u64,
-        page_size: u32,
-    ) -> MerchantPage {
-        search_component::search_merchants_paginated(&env, filter, cursor, page_size)
-    }
-
-    fn search_subscription_plans(
+    fn slash_campaign_stake(
         env: Env,
         caller: Address,
         filter: SubscriptionPlanFilter,
@@ -1061,7 +876,11 @@ impl ShadeTrait for Shade {
         env: Env,
         contributor: Address,
         campaign_id: u64,
+        participant: Address,
         amount: i128,
+    ) {
+        pausable_component::assert_not_paused(&env);
+        campaign_component::slash_campaign_stake(&env, &caller, campaign_id, &participant, amount);
         token: Address,
     ) -> u64 {
         pausable_component::assert_not_paused(&env);
@@ -1178,55 +997,43 @@ impl ShadeTrait for Shade {
         )
     }
 
-    fn update_campaign(
+    fn register_affiliate(
         env: Env,
-        merchant: Address,
+        caller: Address,
         campaign_id: u64,
-        title: Option<String>,
-        description: Option<String>,
+        affiliate: Address,
+        commission_bps: u32,
     ) {
         pausable_component::assert_not_paused(&env);
-        campaigns_component::update_campaign(&env, &merchant, campaign_id, title, description);
+        campaign_component::register_affiliate(&env, &caller, campaign_id, &affiliate, commission_bps);
     }
 
-    fn set_campaign_active(env: Env, merchant: Address, campaign_id: u64, active: bool) {
-        pausable_component::assert_not_paused(&env);
-        campaigns_component::set_campaign_active(&env, &merchant, campaign_id, active);
-    }
-
-    fn add_campaign_tag(env: Env, merchant: Address, campaign_id: u64, tag_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        campaigns_component::add_campaign_tag(&env, &merchant, campaign_id, tag_id);
-    }
-
-    fn remove_campaign_tag(env: Env, merchant: Address, campaign_id: u64, tag_id: u64) {
-        pausable_component::assert_not_paused(&env);
-        campaigns_component::remove_campaign_tag(&env, &merchant, campaign_id, tag_id);
-    }
-
-    fn record_campaign_contribution(
+    fn pay_affiliate_commission(
         env: Env,
+        caller: Address,
         campaign_id: u64,
-        contributor: Address,
+        affiliate: Address,
         amount: i128,
     ) {
         pausable_component::assert_not_paused(&env);
-        contributor.require_auth();
-        campaigns_component::record_contribution(&env, campaign_id, &contributor, amount);
+        campaign_component::pay_affiliate_commission(&env, &caller, campaign_id, &affiliate, amount);
     }
 
     fn get_campaign(env: Env, campaign_id: u64) -> Campaign {
-        campaigns_component::get_campaign(&env, campaign_id)
+        campaign_component::get_campaign(&env, campaign_id)
     }
 
-    fn get_campaigns(env: Env, filter: CampaignFilter) -> Vec<Campaign> {
-        campaigns_component::get_campaigns(&env, filter)
+    fn get_campaign_participant(env: Env, campaign_id: u64, participant: Address) -> CampaignParticipant {
+        campaign_component::get_campaign_participant(&env, campaign_id, &participant)
     }
 
-    fn init_campaign(env: Env, merchant: Address, campaign_id: u64) {
-        leaderboard_component::init_campaign(&env, merchant, campaign_id);
+    fn get_campaign_affiliate(env: Env, campaign_id: u64, affiliate: Address) -> CampaignAffiliate {
+        campaign_component::get_campaign_affiliate(&env, campaign_id, &affiliate)
     }
 
+    fn get_campaign_leaderboard(env: Env, campaign_id: u64, limit: u32) -> Vec<(Address, i128)> {
+        campaign_component::get_campaign_leaderboard(&env, campaign_id, limit)
+    }
     fn track_donation(env: Env, merchant: Address, campaign_id: u64, donor: Address, amount: i128) {
         leaderboard_component::track_donation(&env, merchant, campaign_id, donor, amount);
     }

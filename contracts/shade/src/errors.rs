@@ -66,6 +66,79 @@ pub enum ContractError {
     NoPendingFeeUpdate = 43,
     InvalidSwapPath = 44,
     InvalidSlippage = 45,
+    EventNotFound = 46,
+    EventSoldOut = 47,
+    InvalidCapacity = 48,
+    InvalidEventDate = 49,
+    InvalidRoyaltyBps = 50,
+    TicketNotFound = 51,
+    NotTicketOwner = 52,
+    InvalidResalePrice = 54,
+    NotFound = 55,
+
+    // ── Campaign categories & tagging (#352) ──────────────────────────────
+    CampaignCategoryNotFound = 66,
+    CampaignCategoryAlreadyExists = 67,
+    CampaignCategoryInactive = 68,
+    CampaignTagNotFound = 69,
+    CampaignTagAlreadyExists = 70,
+
+    // ── Campaign system ───────────────────────────────────────────────────
+    CampaignNotFound = 71,
+    InvalidCampaignGoal = 72,
+    InvalidCampaignDeadline = 73,
+    CampaignInactive = 74,
+    NotCampaignMerchant = 75,
+    CampaignExpired = 76,
+    AffiliateNotFound = 77,
+    CampaignEnded = 78,
+    CampaignNotActive = 79,
+
+    // ── Financial penalties for malicious campaigns (#360) ────────────────
+    /// Campaign is not in a state that allows penalty reports.
+    CampaignNotPenalizable = 80,
+    /// The penalty report referenced does not exist.
+    PenaltyReportNotFound = 81,
+    /// The penalty report has already been resolved.
+    PenaltyReportAlreadyResolved = 82,
+    /// The caller is not authorized to resolve penalty reports (admin only).
+    NotPenaltyResolver = 83,
+    /// The suggested penalty amount exceeds the campaign's slasable funds.
+    PenaltyExceedsSlasableFunds = 84,
+
+    // ── Multi-sig massive withdrawal ─────────────────────────────────────
+    BelowMultiSigThreshold = 85,
+    MultiSigSignersNotSet = 86,
+    InvalidQuorum = 87,
+    NotASigner = 88,
+    AlreadyApproved = 89,
+    ProposalNotFound = 90,
+    ProposalNotPending = 91,
+    QuorumNotReached = 92,
+    NotProposer = 93,
+    ThresholdNotSet = 94,
+
+    // ── Escrow ───────────────────────────────────────────────────────────
+    EscrowNotFound = 95,
+    InvalidEscrowStatus = 96,
+
+    // ── Backer rewards ───────────────────────────────────────────────────
+    InvalidRewardTier = 97,
+    PledgeBelowTierMinimum = 98,
+    RewardTierAtCapacity = 99,
+    BackerRewardAlreadyFulfilled = 100,
+    NotBacker = 101,
+    PerkNotFound = 102,
+    PerkAlreadyClaimed = 103,
+    BackerRewardNotFulfilled = 104,
+    InvalidTierOrdering = 105,
+
+    // ── Bridge ───────────────────────────────────────────────────────────
+    BridgeDepositProcessed = 106,
+    NftError = 107,
+}
+
+/// DAO governance errors. Kept in a separate enum.
     /// The referenced escrow record does not exist.
     EscrowNotFound = 46,
     /// The escrow is not in a state that permits this operation.
@@ -81,24 +154,17 @@ pub enum ContractError {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum GovernanceError {
-    /// Caller is not a registered governance council member.
-    NotGovMember = 100,
-    /// Governance voting parameters have not been configured.
-    GovNotConfigured = 101,
-    /// Supplied governance config is invalid (zero period or quorum > 100%).
-    InvalidGovConfig = 102,
-    /// No proposal exists for the supplied id.
-    ProposalNotFound = 103,
-    /// The proposal is no longer open (already executed or defeated).
-    ProposalNotActive = 104,
-    /// The voting window for this proposal has closed.
-    VotingClosed = 105,
-    /// The voting window is still open; the proposal cannot be finalized yet.
-    VotingStillOpen = 106,
-    /// This member has already voted on the proposal.
-    AlreadyVoted = 107,
+    NotGovMember = 200,
+    GovNotConfigured = 201,
+    InvalidGovConfig = 202,
+    ProposalNotFound = 203,
+    ProposalNotActive = 204,
+    VotingClosed = 205,
+    VotingStillOpen = 206,
+    AlreadyVoted = 207,
 }
 
+/// Escrow / expired-refund errors.
 /// Ticketing / event errors. Codes 120–139.
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -148,6 +214,8 @@ pub enum MultiSigError {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum EscrowError {
+    EscrowNotExpired = 300,
+    EscrowAlreadyRefunded = 301,
     /// The escrow invoice has not yet reached its expiration timestamp.
     EscrowNotExpired = 160,
     /// The escrow invoice has already been fully refunded.

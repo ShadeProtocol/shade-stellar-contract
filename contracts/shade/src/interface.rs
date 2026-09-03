@@ -1,22 +1,14 @@
 use crate::types::{
-    Campaign, CampaignCategory, CampaignFilter, CampaignTag, CrossChainBridgePayload, Event,
-    Invoice, InvoiceFilter, Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
-    OracleConfig, PaymentPayload, PendingFee, Role, Subscription, SubscriptionPlan, Ticket,
-    TokenAnalytics, Transaction
-    CrossChainBridgePayload, CrossChainPledge, CrossChainPledgeStatus, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
-    MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role,
-    Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
-    CrossChainBridgePayload, Event, EventFilter, Invoice, InvoiceFilter, InvoicePage, Merchant,
-    MerchantFilter, MerchantPage, MerchantAnalytics, MerchantAnalyticsSummary, OracleConfig,
-    PaymentPayload, PendingFee, Role, Subscription, SubscriptionFilter, SubscriptionPlan,
-    SubscriptionPlanFilter, Ticket, TokenAnalytics, Transaction, WithdrawalProposal,
+    BackerCampaign, BackerRewardTier, BridgeDeposit, Campaign, CampaignAnnouncement,
+    CampaignCategory, CampaignFilter, CampaignPenaltyReport, CampaignTag,
+    CrossChainBridgePayload, CrossChainPledge, CrossChainPledgeStatus,
+    DonorInfo, Escrow, Event, EventFilter, Invoice, InvoiceFilter, InvoicePage,
+    Merchant, MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter,
+    MerchantPage, MultiSigConfig, Nft, NftCollection, OracleConfig,
+    PaymentPayload, PendingFee, Pledge, PlatformFeeSplit, Role, Subscription,
+    SubscriptionFilter, SubscriptionPlan, SubscriptionPlanFilter, Ticket,
+    TokenAnalytics, Transaction, UpgradeProposal, WithdrawalProposal,
     WithdrawalProposalFilter,
-    CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant, MerchantAnalytics,
-    MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role,
-    Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction, Escrow
-    BackerCampaign, BackerPerk, BackerRewardTier, CrossChainBridgePayload, Event, Invoice, InvoiceFilter, Merchant,
-    MerchantAnalytics, MerchantAnalyticsSummary, MerchantFilter, Nft, NftCollection, OracleConfig, PaymentPayload,
-    PendingFee, Role, Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, Option, String, Vec};
 

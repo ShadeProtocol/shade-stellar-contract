@@ -57,6 +57,8 @@ pub mod test_upgrade;
 pub mod test_campaign_leaderboard;
 pub mod test_campaigns;
 pub mod test_feature_228;
+pub mod test_campaign_leaderboard;
+pub mod test_campaign_penalties;
 pub mod test_feature_231;
 
 pub mod test_analytics_export;

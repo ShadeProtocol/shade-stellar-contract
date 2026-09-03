@@ -1857,6 +1857,30 @@ pub fn publish_escrow_expired_refund_event(
     .publish(env);
 }
 
+// ── Campaign financial penalties & slashing events (#360) ─────────────────────
+
+#[contractevent]
+pub struct CampaignStakedEvent {
+    pub campaign_id: u64,
+    pub participant: Address,
+    pub amount: i128,
+    pub total_staked: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_staked_event(
+    env: &Env,
+    campaign_id: u64,
+    participant: Address,
+    amount: i128,
+    total_staked: i128,
+    timestamp: u64,
+) {
+    CampaignStakedEvent {
+        campaign_id,
+        participant,
+        amount,
+        total_staked,
 // ── Stretch goals ─────────────────────────────────────────────────────────────
 //
 // Each event carries the campaign_id alongside the goal_id so indexers can build
@@ -1901,6 +1925,28 @@ pub fn publish_stretch_goal_created_event(
     .publish(env);
 }
 
+#[contractevent]
+pub struct CampaignSlashedEvent {
+    pub campaign_id: u64,
+    pub participant: Address,
+    pub amount: i128,
+    pub remaining_stake: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_slashed_event(
+    env: &Env,
+    campaign_id: u64,
+    participant: Address,
+    amount: i128,
+    remaining_stake: i128,
+    timestamp: u64,
+) {
+    CampaignSlashedEvent {
+        campaign_id,
+        participant,
+        amount,
+        remaining_stake,
 /// Emitted when a campaign's raise reaches a goal's target and it goes live.
 #[contractevent]
 pub struct StretchGoalUnlockedEvent {
@@ -2054,6 +2100,7 @@ pub fn publish_affiliate_commission_paid_event(
 #[contractevent]
 pub struct AffiliateRegisteredEvent {
     pub campaign_id: u64,
+    pub affiliate: Address,
     pub affiliate_address: Address,
     pub commission_bps: u32,
     pub timestamp: u64,
@@ -2062,12 +2109,14 @@ pub struct AffiliateRegisteredEvent {
 pub fn publish_affiliate_registered_event(
     env: &Env,
     campaign_id: u64,
+    affiliate: Address,
     affiliate_address: Address,
     commission_bps: u32,
     timestamp: u64,
 ) {
     AffiliateRegisteredEvent {
         campaign_id,
+        affiliate,
         affiliate_address,
         commission_bps,
         timestamp,
@@ -2076,6 +2125,27 @@ pub fn publish_affiliate_registered_event(
 }
 
 #[contractevent]
+pub struct AffiliateCommissionPaidEvent {
+    pub campaign_id: u64,
+    pub affiliate: Address,
+    pub amount: i128,
+    pub total_paid: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_affiliate_commission_paid_event(
+    env: &Env,
+    campaign_id: u64,
+    affiliate: Address,
+    amount: i128,
+    total_paid: i128,
+    timestamp: u64,
+) {
+    AffiliateCommissionPaidEvent {
+        campaign_id,
+        affiliate,
+        amount,
+        total_paid,
 pub struct BackerCampaignCreatedEvent {
     pub campaign_id: u64,
     pub merchant_addr: Address,
@@ -2424,6 +2494,30 @@ pub fn publish_campaign_executed_event(
 }
 
 #[contractevent]
+pub struct CampaignPenaltyReportedEvent {
+    pub report_id: u64,
+    pub campaign_id: u64,
+    pub reporter: Address,
+    pub reason: String,
+    pub suggested_penalty: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_penalty_reported_event(
+    env: &Env,
+    report_id: u64,
+    campaign_id: u64,
+    reporter: Address,
+    reason: String,
+    suggested_penalty: i128,
+    timestamp: u64,
+) {
+    CampaignPenaltyReportedEvent {
+        report_id,
+        campaign_id,
+        reporter,
+        reason,
+        suggested_penalty,
 pub struct CampaignFeePolicySetEvent {
     pub campaign_id: u64,
     pub caller: Address,
@@ -2451,6 +2545,30 @@ pub fn publish_campaign_fee_policy_configured_event(
 }
 
 #[contractevent]
+pub struct CampaignPenaltyResolvedEvent {
+    pub report_id: u64,
+    pub campaign_id: u64,
+    pub resolved_by: Address,
+    pub upheld: bool,
+    pub applied_penalty: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_campaign_penalty_resolved_event(
+    env: &Env,
+    report_id: u64,
+    campaign_id: u64,
+    resolved_by: Address,
+    upheld: bool,
+    applied_penalty: i128,
+    timestamp: u64,
+) {
+    CampaignPenaltyResolvedEvent {
+        report_id,
+        campaign_id,
+        resolved_by,
+        upheld,
+        applied_penalty,
 pub struct CampaignSlashedEvent {
     pub campaign_id: u64,
     pub participant_address: Address,
