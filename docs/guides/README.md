@@ -2,6 +2,7 @@
 
 Task-oriented how-tos, written from the [how-to template](../contributing/templates/how-to-template.md).
 
+- [How to generate and use contract bindings and SDKs](./contract-bindings.md).
 - How to register and verify a merchant — *planned*.
 - How to create and pay an invoice — *planned*.
 - How to set up a subscription plan — *planned*.
