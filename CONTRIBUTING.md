@@ -195,6 +195,15 @@ A PR changing a **public interface** must update the matching reference docs in 
 
 This keeps the API reference trustworthy for integrators who read the docs instead of the Rust source.
 
+### Architecture decision records (ADRs)
+
+Any PR that introduces or changes a significant architectural or security-critical design choice must include a new (or superseding) Architecture Decision Record under [`docs/architecture/decisions/`](docs/architecture/decisions/README.md), created from [`docs/architecture/decisions/template.md`](docs/architecture/decisions/template.md). A new ADR is required when your change:
+
+- Introduces a new contract crate, factory contract, or component boundary inside `contracts/shade/src/components/`.
+- Changes cross-contract call topology, storage-key partitioning (`types.rs`), or upgrade/migration mechanics.
+- Alters an authorization, timelock, or role-transfer mechanism (such as admin transfer, fee governance, or emergency pause guards).
+- Chooses between implementing a capability inside the `shade` hub versus as a standalone sibling contract.
+
 ### PR Checklist
 
 Before submitting a PR, ensure:
@@ -258,4 +267,3 @@ If you have questions, feel free to:
 Thank you for contributing to the development! 🎉
 
 <br />
-

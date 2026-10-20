@@ -7,4 +7,6 @@ How the Shade Protocol contracts, factories, and shared components fit together.
 - [Storage model](storage-model.md) — every `DataKey` variant, storage tier usage, ID-counter and collection patterns, and TTL/rent behavior in the `shade` contract.
 - [Upgradeability, WASM Hash Management, and Versioning](upgradeability.md) — the admin and governance upgrade paths, storage compatibility rules for persisted types, migration patterns, and how a deployed build is identified.
 
+- [Architecture Decision Records (ADRs)](decisions/README.md) — index, template, and recorded rationale for core protocol design choices.
+
 ← [Back to documentation home](../README.md)
