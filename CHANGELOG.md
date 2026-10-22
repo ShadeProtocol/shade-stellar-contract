@@ -18,6 +18,7 @@ This file exists so that integrators and operators can see what each deployed WA
 - **workspace:** FAQ and developer troubleshooting guide under `docs/getting-started/`.
 - **workspace:** Guide to testing integrations against Shade locally, in-process and on a local network (`docs/guides/testing-integrations.md`).
 - **workspace:** Wallet integration guide for Freighter and Stellar Wallets Kit (`docs/guides/wallet-integration.md`).
+- **workspace:** Measured resource costs and safe batch sizes for the Shade hub operations (`docs/reference/resource-costs.md`), with a regeneration script (`scripts/resource-costs/measure-shade.sh`) and test harness (`contracts/shade/tests/resource_costs.rs`).
 - **workspace:** This changelog and the release process (`docs/operations/releases.md`), including the breaking-change criteria and an "Update CHANGELOG" item in the pull request template.
 
 ## Pre-release history

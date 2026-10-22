@@ -1,0 +1,39 @@
+diff --git a/contracts/shade/src/components/invoice.rs b/contracts/shade/src/components/invoice.rs
+index 9b58ed1..a3fc9b0 100644
+--- a/contracts/shade/src/components/invoice.rs
++++ b/contracts/shade/src/components/invoice.rs
+@@ -490,11 +490,16 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
+ pub fn pay_invoices_batch(env: &Env, payer: &Address, invoice_ids: &Vec<u64>) {
+     payer.require_auth();
+     for invoice_id in invoice_ids.iter() {
+-        pay_invoice(env, payer, invoice_id);
++        pay_invoice_inner(env, payer, invoice_id);
+     }
+ }
+ 
+ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
++    payer.require_auth();
++    pay_invoice_inner(env, payer, invoice_id)
++}
++
++fn pay_invoice_inner(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
+     let invoice = get_invoice(env, invoice_id);
+     if invoice.status != InvoiceStatus::Pending && invoice.status != InvoiceStatus::PartiallyPaid {
+         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+@@ -503,11 +508,15 @@ pub fn pay_invoice(env: &Env, payer: &Address, invoice_id: u64) -> i128 {
+     if remaining_amount <= 0 {
+         panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+     }
+-    pay_invoice_partial(env, payer, invoice_id, remaining_amount)
++    pay_invoice_partial_inner(env, payer, invoice_id, remaining_amount)
+ }
+ 
+ pub fn pay_invoice_partial(env: &Env, payer: &Address, invoice_id: u64, amount: i128) -> i128 {
+     payer.require_auth();
++    pay_invoice_partial_inner(env, payer, invoice_id, amount)
++}
++
++fn pay_invoice_partial_inner(env: &Env, payer: &Address, invoice_id: u64, amount: i128) -> i128 {
+ 
+     if amount <= 0 {
+         panic_with_error!(env, ContractError::InvalidAmount);
