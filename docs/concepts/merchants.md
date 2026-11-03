@@ -61,7 +61,7 @@ All verified in `merchant.rs`. Every one below requires `merchant.require_auth()
 
 | Function | Inputs | Validation | Resulting state | Event |
 |---|---|---|---|---|
-| `set_merchant_account` | `account: Address` | Merchant must already be registered (`MerchantNotFound` otherwise). No validation that `account` is a real `account`-contract instance. | `DataKey::MerchantAccount(merchant_id) = account` | None emitted (verified absent from this function's body). |
+| `deploy_merchant_account` | — | Merchant must be registered and active; the account WASM hash must be set; one account per merchant (`MerchantAccountAlreadySet` otherwise). | Deploys the account with the hub as manager and sets `DataKey::MerchantAccount(merchant_id)` | `MerchantAccountDeployedEvent` |
 | `set_merchant_key` | `key: BytesN<32>` | Merchant must be registered. | `DataKey::MerchantKey(merchant) = key` | `MerchantKeySetEvent { merchant, key, timestamp }`. |
 | `set_merchant_webhook` | `webhook: String` | Merchant must be registered (reads the record via `get_merchant`, which panics `MerchantNotFound`). | `Merchant.webhook = webhook`, record re-stored. | `MerchantWebhookSetEvent { merchant, merchant_id, webhook, timestamp }`. |
 | `set_merchant_accepted_tokens` | `tokens: Vec<Address>` | Merchant registered and **active** (`MerchantNotActive` otherwise); every token must already be globally accepted (`admin::is_accepted_token`, else `TokenNotAccepted`); list is deduplicated before storage. | `DataKey::MerchantTokens(merchant) = deduped` (full replace, not merge). | `MerchantTokensSetEvent { merchant, tokens, timestamp }`. |
@@ -69,7 +69,7 @@ All verified in `merchant.rs`. Every one below requires `merchant.require_auth()
 
 **Security implications, verified from the code above (not speculative):**
 
-- `set_merchant_account` performs no validation on the supplied `account` address — a merchant could point it at any address, including one they don't control an `account`-contract deployment of. This affects where refunds are sourced from (`refund_invoice`/`refund_invoice_partial`/`claim_refund` all resolve the merchant's account via `get_merchant_account` and call `refund` on it via `MerchantAccountRefundClient`) and where auto-withdrawal sweeps funds to.
+- The hub only links accounts it deployed itself, so the account is always a real `account` contract with the hub as manager. This matters for where refunds are sourced from (`refund_invoice`/`refund_invoice_partial`/`claim_refund` all resolve the merchant's account via `get_merchant_account` and call `refund` on it via `MerchantAccountRefundClient`) and where auto-withdrawal sweeps funds to.
 - `set_merchant_key` sets the key used by `signature_util::verify_invoice_signature` for `create_invoice_signed` — a merchant fully controls this key with no admin oversight, since the setter only requires the merchant's own auth.
 
 ## Querying
@@ -116,7 +116,7 @@ Derived strictly from the enforcement call sites found in [Activation](#activati
 | Backer-reward operations (`backer_rewards.rs`) | **Yes** (one call site) | No | — |
 | `pay_invoice` / `pay_invoice_partial` / `pay_invoices_batch` | No (not checked) | No | Invoice status must be `Pending`/`PartiallyPaid`; token accepted; global pause. |
 | `refund_invoice` / `refund_invoice_partial` / `void_invoice` / `amend_invoice` / `claim_refund` | No (not checked) | No | See [Refunds and voids](refunds-and-voids.md) for the full precondition set. |
-| Every other query/config function not listed above (`set_merchant_account`, `set_merchant_key`, `set_merchant_webhook`, `get_merchant`, etc.) | No | No | Merchant must be registered where the function reads a merchant record. |
+| Every other query/config function not listed above (`set_merchant_key`, `set_merchant_webhook`, `get_merchant`, etc.) | No | No | Merchant must be registered where the function reads a merchant record. |
 
 **Cross-cutting dependencies flagged explicitly, since they belong to other guard layers rather than to the merchant state model itself:**
 
@@ -128,4 +128,4 @@ Derived strictly from the enforcement call sites found in [Activation](#activati
 
 - [Storage model](../architecture/storage-model.md) — `DataKey::Merchant(u64)` and every other merchant-related `DataKey` variant.
 - [Shade contract reference](../contracts/shade.md#merchants) — full list of merchant-related `ShadeTrait` functions with auth summaries.
-- [Refunds and voids](refunds-and-voids.md) — how the merchant's `account` (set via `set_merchant_account`) is used as the funding source for every refund path.
+- [Refunds and voids](refunds-and-voids.md) — how the merchant's `account` (created by `deploy_merchant_account`) is used as the funding source for every refund path.

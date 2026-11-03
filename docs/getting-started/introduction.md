@@ -34,7 +34,7 @@ Being explicit about what Shade does *not* do is as useful as describing what it
 | **Issuing tokens** | Shade settles in tokens issued elsewhere. The [admin](../glossary.md#admin) whitelists which ones are acceptable; the protocol mints nothing. |
 | **Being a wallet** | Shade holds no user keys and offers no key management. Payers and merchants bring their own Stellar accounts. |
 | **General-purpose identity or full KYC** | The protocol records a verification flag and a KYC request lifecycle that reviewers act on. It does not collect, store, or validate identity documents on chain — that work happens off chain, and only the resulting status is recorded. |
-| **Reversing settled payments unilaterally** | There is no chargeback. Refunds are explicit contract calls made by the party holding the funds; escrow exists for deals that need a hold before release. |
+| **Reversing settled payments unilaterally** | There is no chargeback. Refunds are explicit contract calls made by the party holding the funds. |
 | **Off-chain infrastructure** | Dashboards, SDKs, and notification services live outside this repository. Shade emits events; those systems consume them. |
 
 ## The actors
@@ -45,7 +45,7 @@ Four roles appear throughout the protocol and the rest of these docs.
 
 The single address stored under `DataKey::Admin`, set once by `initialize` and thereafter handed over only through a two-step propose/accept transfer. The admin governs the protocol, not any individual payment.
 
-The admin can whitelist and remove [accepted tokens](../glossary.md#accepted-token), set and time-lock protocol fees per token, designate the platform fee account, configure price oracles, activate and verify merchants, restrict a merchant account, pause and unpause the whole contract, register governance council members, set the account contract's WASM hash, and upgrade the contract's code.
+The admin can whitelist and remove [accepted tokens](../glossary.md#accepted-token), set and time-lock protocol fees per token, designate the platform fee account, configure price oracles, activate and verify merchants, restrict a merchant account, pause and unpause the whole contract, set the account contract's WASM hash, and upgrade the contract's code.
 
 The admin **cannot** move a merchant's funds. Balances live in each merchant's own account contract, and only the merchant authorizes a withdrawal from it.
 
@@ -53,11 +53,11 @@ The admin **cannot** move a merchant's funds. Balances live in each merchant's o
 
 Any address that calls `register_merchant`. Registration is permissionless: it self-authorizes, and the new merchant record starts `active: true` and `verified: false`. Verification is a separate admin action that gates the features requiring it.
 
-A merchant deploys its settlement account (`deploy_merchant_account`), creates and manages [invoices](../glossary.md#invoice), publishes [subscription plans](../glossary.md#subscription-plan), issues event tickets, opens escrows and campaigns, narrows which tokens it will accept, and withdraws its balance from its account contract.
+A merchant deploys its settlement account (`deploy_merchant_account`), creates and manages [invoices](../glossary.md#invoice), narrows which tokens it will accept, and withdraws its balance from its account contract.
 
 ### Payer — the customer
 
-Any address paying a merchant. Payers do not register and hold no protocol role; the only requirement is authorizing the payment. A payer settles an invoice in full (`pay_invoice`), in part (`pay_invoice_partial`), or several at once (`pay_invoices_batch`), subscribes to a plan and authorizes recurring billing, buys tickets, funds escrow, and pledges to campaigns.
+Any address paying a merchant. Payers do not register and hold no protocol role; the only requirement is authorizing the payment. A payer settles an invoice in full (`pay_invoice`), in part (`pay_invoice_partial`), or several at once (`pay_invoices_batch`).
 
 ### Platform — the fee recipient
 
@@ -121,7 +121,7 @@ Two crates live under [`contracts/`](../../contracts): `shade` is the hub, and `
 
 | Crate | Role | Reference |
 |---|---|---|
-| [`shade`](../../contracts/shade) | The hub contract. Owns admin config, accepted tokens, fees, merchants, invoices, payment routing, and the on-hub subscription, escrow, ticketing, campaign, governance, and upgrade components. | [Contracts](../contracts/README.md) — *page planned* |
+| [`shade`](../../contracts/shade) | The hub contract. Owns admin config, accepted tokens, fees, merchants, invoices, payment routing, refunds, analytics, and upgrades. | [Shade](../contracts/shade.md) |
 | [`account`](../../contracts/account) | The per-merchant settlement account. Holds token balances, enforces withdrawal thresholds and multi-approval, and carries the verified and restricted flags. Deployed per merchant from a WASM hash the admin registers. | [Contracts](../contracts/README.md) — *page planned* |
 
 ## Next steps

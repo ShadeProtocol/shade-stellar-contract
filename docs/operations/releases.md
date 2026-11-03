@@ -224,7 +224,7 @@ Copy the changelog section for the version and add the build record. Use this te
 
 - Commit: `<full SHA of the tag>`
 - Toolchain: Rust `<rustc --version>`, Stellar CLI `<stellar --version>`, soroban-sdk `<version from Cargo.lock>`
-- Build command: see [Releases runbook](docs/operations/releases.md#5-build-reproducible-wasms)
+- Build command: see [Releases runbook](#5-build-reproducible-wasms)
 - Independently reproduced by: `<name or CI run>`
 
 ### Upgrading
