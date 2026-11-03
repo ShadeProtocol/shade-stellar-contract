@@ -70,12 +70,11 @@ Complete API reference for the `shade` contract's public interface — every fun
 | [`revoke_role`](#revoke_role) | Access control |
 | [`search_invoices_paginated`](#search_invoices_paginated) | Search |
 | [`search_merchants_paginated`](#search_merchants_paginated) | Search |
-| [`set_accepted_tokens`](#set_accepted_tokens) | Admin |
 | [`set_account_wasm_hash`](#set_account_wasm_hash) | Admin |
 | [`set_auto_withdrawal_recipient`](#set_auto_withdrawal_recipient) | Merchant |
+| [`deploy_merchant_account`](#deploy_merchant_account) | Merchant |
 | [`set_auto_withdrawal_threshold`](#set_auto_withdrawal_threshold) | Merchant |
 | [`set_fee`](#set_fee) | Fee |
-| [`set_merchant_account`](#set_merchant_account) | Merchant |
 | [`set_merchant_accepted_tokens`](#set_merchant_accepted_tokens) | Merchant |
 | [`set_merchant_key`](#set_merchant_key) | Security |
 | [`set_merchant_platform_fee`](#set_merchant_platform_fee) | Fee |

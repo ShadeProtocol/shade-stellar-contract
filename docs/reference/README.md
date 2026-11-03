@@ -7,7 +7,7 @@ Lookup material: terminology, error codes, and storage layout.
 - [Data types reference](data-types.md) — all structs, enums, and their fields.
 - [Errors reference](errors.md) — every error enum in the workspace, its codes, triggers, and fixes.
 - [Resource costs and Soroban limits](../../example/docs/reference/resource-costs.md) — measured CPU, memory, ledger and event costs, and safe batch sizes.
-- Storage key layout across `DataKey`, `EventKey`, `CampaignKey`, and related enums — *planned*.
+- [Storage model](../architecture/storage-model.md) — every `DataKey` variant.
 - Events reference (`contracts/shade/src/events.rs`) — *planned*.
 
 ← [Back to documentation home](../README.md)
