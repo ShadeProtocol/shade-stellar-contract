@@ -56,6 +56,7 @@
   - [API Reference (rustdoc)](api.md)
 - [Guides](guides/README.md)
   - [Merchant Onboarding](guides/merchant-onboarding.md)
+  - [SaaS Subscription Integration](guides/saas-subscriptions.md)
   - [Accepting Payments](guides/accepting-payments.md)
   - [Contract Bindings](guides/contract-bindings.md)
   - [Indexing Events](guides/indexing-events.md)
