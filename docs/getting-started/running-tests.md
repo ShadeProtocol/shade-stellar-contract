@@ -363,6 +363,66 @@ Factor this into a `fn assert_latest_*_event` helper at the top of the module wh
 - [ ] `cargo test -p <crate>` passes, and `cargo fmt --all` and `cargo clippy --workspace --all-features -- -D warnings` are clean.
 - [ ] No `test_snapshots/` file staged in the commit.
 
+## Test fixtures
+
+Shade's test suite depends on committed WASM fixtures in `contracts/shade/src/tests/fixtures/`. These fixtures are built artifacts deployed and tested within the test suite itself, not files you need to interact with for ordinary test runs — but if you change certain code, you must rebuild them or tests will fail in unexpected ways.
+
+### `account.wasm` fixture
+
+**Purpose:** The compiled merchant account contract, deployed by the shade hub when creating per-merchant vaults.
+
+**Consumers:** [`test_account_factory.rs`](../../contracts/shade/src/tests/test_account_factory.rs) and [`test_reentrancy.rs`](../../contracts/shade/src/tests/test_reentrancy.rs) depend on it. When either test runs, it uses `include_bytes!("fixtures/account.wasm")` to load the fixture, deploys it into the test environment via the hub's `set_account_wasm_hash` function, and verifies that merchant accounts instantiate correctly with the right permissions and state.
+
+**When to rebuild:** Rebuild with `make fixtures` immediately after any change under `contracts/account/src/`. The fixture is a snapshot of the account contract's code, so if the source changes but the fixture doesn't, tests will verify against stale bytecode and may pass when they should fail or fail when they should pass.
+
+**How to rebuild:**
+
+```bash
+make fixtures
+```
+
+This runs `cargo build -p account --target wasm32v1-none --release` and copies the built WASM to `contracts/shade/src/tests/fixtures/account.wasm`. The fixture is then committed to git so the test suite can run on any machine without needing to build the account contract first.
+
+**Symptoms of a stale fixture:**
+- Changes to `contracts/account/src` do not cause test failures in `test_account_factory`.
+- Tests pass locally but fail in CI (or vice versa) if someone ran `make fixtures` before committing but CI did not.
+- A new test for account behavior passes even though it should fail against the current account code, because it is testing an old version.
+
+### `upgrade_v2_contract.wasm` fixture
+
+**Purpose:** A minimal alternate Shade contract used to verify that upgrades preserve storage and state across WASM swaps.
+
+**Consumers:** [`test_upgrade.rs`](../../contracts/shade/src/tests/test_upgrade.rs) uses it to validate upgrade mechanics:
+- `test_admin_can_upgrade_successfully` — confirms the admin can invoke the upgrade mechanism.
+- `test_state_persists_after_upgrade` — the critical test: writes `DataKey::Admin` and `DataKey::AcceptedTokens` to storage, upgrades to this alternate WASM, and verifies the data survives unchanged by reading it back through `env.as_contract`. This is the primary safeguard against committing a storage-incompatible change.
+- `test_upgrade_emits_contract_upgraded_event` — confirms the upgrade event is published correctly.
+
+**How it was produced:** This fixture is a minimal Shade contract (the same code as the main `shade` contract), built once and committed to the repository. It is not regenerated for every test run; it is a fixed reference point.
+
+**How to regenerate it:** If you need to verify that the alternate WASM is in sync with the current contract code (for example, as a sanity check):
+
+```bash
+# Build the current shade contract
+cargo build -p shade --target wasm32v1-none --release
+
+# Copy it to the upgrade fixture location (overwriting the old one)
+cp target/wasm32v1-none/release/shade.wasm contracts/shade/src/tests/fixtures/upgrade_v2_contract.wasm
+```
+
+Commit the new fixture only if you are deliberately resetting the upgrade test to a new baseline — which is rare and requires careful thought. The fixture is meant to stay fixed across normal development. If you change the contract structure (storage layout, event schemas, etc.), the fixture *should* remain the old version to catch incompatibilities; regenerating it every time would defeat the purpose of the test.
+
+**Symptoms of a stale fixture:**
+- The same as for other fixtures: a test against stale bytecode. Here, `test_state_persists_after_upgrade` might pass even though a storage-incompatible change would cause a real upgrade to fail — because the fixture is an older version that happens to handle the data the same way.
+- If you are actively working on upgrade migrations, regenerate locally to test your changes, but do not commit the new fixture until your migration logic is ready.
+
+### Keeping fixtures current
+
+Both fixtures are committed to git, so they travel with every branch and PR. They are not regenerated automatically:
+
+- **Before committing a change to `contracts/account/src`:** run `make fixtures` and stage the resulting change to `contracts/shade/src/tests/fixtures/account.wasm`. This ensures tests in every branch see the right account bytecode.
+- **When testing upgrades during development:** build locally and regenerate the `upgrade_v2_contract.wasm` fixture as needed, but regeneration is not part of the standard workflow. The fixture is meant to catch breaking changes, not to track your code at every step.
+- **In CI:** `make test` runs the tests against whatever fixtures are committed. If fixtures are stale or missing, tests fail with a clear error (file not found or unexpected bytecode hash). See the stale-fixture check in [Issue 364](https://github.com/ShadeProtocol/shade-stellar-contract/issues/364) for plans to detect this earlier.
+
 ## Next steps
 
 - [Building the Contracts](building.md) — turning a passing test run into a deployable WASM.
