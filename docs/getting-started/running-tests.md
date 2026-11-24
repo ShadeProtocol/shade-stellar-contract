@@ -67,6 +67,59 @@ For crates using the `tests/` directory layout, each file is its own binary and 
 | `--no-fail-fast` | Keeps going after a crate fails, so you see every failure in one run. |
 | `-- --test-threads=1` | Serializes tests; useful when you are reading interleaved output. |
 
+## Test fixtures
+
+The shade contract tests depend on two committed WASM fixtures in `contracts/shade/src/tests/fixtures/`:
+
+### `account.wasm`
+
+**Purpose:** The real, fully-compiled `account` contract used by shade's tests to validate cross-contract calls, merchant account deployment, and account management operations.
+
+**Used by:**
+- `test_account_factory.rs` — verifies that shade can deploy merchant accounts correctly, verify their initialization, and manage their lifecycle
+- `test_reentrancy.rs` — tests that shade prevents reentrancy attacks during account deployment and other operations
+
+**When to regenerate:** After any change to the `contracts/account/` crate, run:
+
+```bash
+make fixtures
+```
+
+or manually:
+
+```bash
+cargo build -p account --target wasm32v1-none --release
+cp target/wasm32v1-none/release/account.wasm contracts/shade/src/tests/fixtures/account.wasm
+```
+
+### `upgrade_v2_contract.wasm`
+
+**Purpose:** A minimal stub WASM contract representing a future major version of shade. Used to test shade's upgrade mechanism: that the admin can upload new WASM, trigger an upgrade to it, and that contract state persists correctly across the upgrade.
+
+**Used by:**
+- `test_upgrade.rs` — verifies upgrade authorization, state persistence, and upgrade event emission
+- `example/platform_extras/src/from_shade/tests/test_governance.rs` — tests governance-driven upgrades
+
+**How it was produced:** This fixture was created as a minimal WASM binary at the time the upgrade feature was implemented. It is not built from source; it is a frozen snapshot used only as a test placeholder to represent "any future shade version."
+
+**When to regenerate:** Upgrade this fixture only if the Soroban SDK's WASM binary format changes (e.g., after a major SDK version bump that affects the binary format). In that case, the upgrade mechanism itself should be tested against the new format. Regenerating it involves:
+
+1. Creating a minimal valid WASM binary (or compiling a minimal Soroban contract to WASM)
+2. Placing it at `contracts/shade/src/tests/fixtures/upgrade_v2_contract.wasm`
+
+Consult the upgrade tests to understand what properties the WASM must have (minimum viable WASM that the SDK can upload and reference by hash).
+
+**Note:** This fixture is intentionally not built as part of `make fixtures` because it has no source code to maintain. If you need to understand what this fixture does, read `test_upgrade.rs`; if you need to regenerate it, that's a rare maintenance task tied to SDK upgrades.
+
+### Symptoms of a stale fixture
+
+If you get a panic like `HostError: Error(WasmVmError, 2)` or a contract invocation fails with a code hash mismatch during tests, it usually means:
+
+1. You modified the `account` contract source but didn't run `make fixtures`
+2. The uploaded WASM hash doesn't match what the test expected
+
+**Fix:** Run `make fixtures` to rebuild and re-commit the fixture.
+
 ## Test layout
 
 Tests live inside each crate.
