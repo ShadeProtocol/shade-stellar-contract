@@ -225,6 +225,7 @@ Before submitting a PR, ensure:
 
 ## Code Style
 
+- Read the [Contract coding conventions](docs/contributing/coding-conventions.md) for rules on errors, events, authorization, storage keys, and naming across smart contracts.
 - Follow Rust standard formatting (enforced by `cargo fmt`)
 - Follow Rust naming conventions
 - Use meaningful variable and function names
@@ -267,6 +268,7 @@ If you have questions, feel free to:
 
 ## Related reading
 
+- [Contract coding conventions](docs/contributing/coding-conventions.md) — errors, events, authorization patterns, storage model, and naming rules across smart contracts.
 - [Documentation Style Guide](docs/contributing/documentation-style-guide.md) — tone, formatting, and terminology rules for anything under `docs/`.
 - [Architecture overview](docs/architecture/overview.md) — how the contracts, factories, and components fit together before you change or document any of them.
 - [Running the test suite](docs/getting-started/running-tests.md) — test layout, filtering, snapshot behavior, and the checklist for adding a new test module.
