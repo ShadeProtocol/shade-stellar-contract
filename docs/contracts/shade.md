@@ -84,7 +84,7 @@ Each function is listed exactly once. See [`shade_interface.rs`](../../contracts
 | `set_merchant_platform_fee` / `get_merchant_platform_fee` / `clear_merchant_platform_fee` | Per-merchant fee-bps override for a token. | Set/clear: `caller` with `Role::Admin` or `Role::Manager`. Get: none. |
 | `get_merchant_volume` / `get_merchant_analytics` / `get_merchant_analytics_summary` | Per-merchant payment analytics. | None. |
 | `get_token_analytics` / `get_token_volume` / `get_token_dominance_metrics` / `get_top_tokens_by_volume` / `get_token_market_share` | Global per-token analytics. | None. |
-| `get_user_transactions` | A customer's recorded transaction history. | None. |
+| `get_user_transactions_page` / `get_user_transaction_count` / `get_user_transactions` (deprecated) | A customer's recorded transaction history, read page by page. | None. |
 
 ### Merchants
 

@@ -7,7 +7,7 @@ use crate::types::{
     MerchantAnalyticsSummary, MerchantFilter, OracleConfig, PaymentPayload, PendingFee, Role,
     Subscription, SubscriptionPlan, Ticket, TokenAnalytics, Transaction
     CrossChainBridgePayload, Event, EventFilter, Invoice, InvoiceFilter, InvoicePage, Merchant,
-    MerchantFilter, MerchantPage, MerchantAnalytics, MerchantAnalyticsSummary, OracleConfig,
+    MerchantFilter, MerchantPage, TransactionPage, MerchantAnalytics, MerchantAnalyticsSummary, OracleConfig,
     PaymentPayload, PendingFee, Role, Subscription, SubscriptionFilter, SubscriptionPlan,
     SubscriptionPlanFilter, Ticket, TokenAnalytics, Transaction, WithdrawalProposal,
     WithdrawalProposalFilter,
@@ -202,8 +202,24 @@ pub trait ShadeTrait {
     /// Only the merchant who owns the plan may call this.
     fn deactivate_plan(env: Env, caller: Address, plan_id: u64);
 
-    /// Get all transactions executed by a specific customer address.
+    /// Deprecated: use `get_user_transactions_page`.
+    ///
+    /// Returns at most the first 50 (`MAX_TRANSACTION_PAGE_SIZE`) transactions
+    /// executed by a customer address, so the call stays bounded.
     fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction>;
+
+    /// Paginated transaction history for a customer address, oldest first.
+    /// Pass `cursor = 0` for the first page. A `page_size` of 0 or above 50
+    /// (`MAX_TRANSACTION_PAGE_SIZE`) is treated as 50.
+    fn get_user_transactions_page(
+        env: Env,
+        user: Address,
+        cursor: u64,
+        page_size: u32,
+    ) -> TransactionPage;
+
+    /// Total number of transactions recorded for a customer address.
+    fn get_user_transaction_count(env: Env, user: Address) -> u64;
 
     // ── Cross-chain bridge placeholder ───────────────────────────────────────
     fn emit_bridge_placeholder(env: Env, caller: Address, payload: CrossChainBridgePayload);

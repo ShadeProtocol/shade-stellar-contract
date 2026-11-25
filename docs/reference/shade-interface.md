@@ -45,7 +45,9 @@ Complete API reference for the `shade` contract's public interface — every fun
 | [`get_token_oracle`](#get_token_oracle) | Admin |
 | [`get_token_volume`](#get_token_volume) | Analytics |
 | [`get_top_tokens_by_volume`](#get_top_tokens_by_volume) | Analytics |
-| [`get_user_transactions`](#get_user_transactions) | Analytics |
+| [`get_user_transactions`](#get_user_transactions) (deprecated) | Analytics |
+| [`get_user_transactions_page`](#get_user_transactions_page) | Analytics |
+| [`get_user_transaction_count`](#get_user_transaction_count) | Analytics |
 | [`grant_role`](#grant_role) | Access control |
 | [`has_role`](#has_role) | Access control |
 | [`initialize`](#initialize) | Admin |
@@ -823,7 +825,23 @@ Market share of a token in basis points (10_000 = 100%).
 fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction>;
 ```
 
-All transactions executed by a specific address.
+**Deprecated.** Use [`get_user_transactions_page`](#get_user_transactions_page). Returns at most the first 50 transactions executed by an address, so the call stays bounded.
+
+### `get_user_transactions_page`
+
+```rust
+fn get_user_transactions_page(env: Env, user: Address, cursor: u64, page_size: u32) -> TransactionPage;
+```
+
+A page of an address's transactions, oldest first. Pass `cursor = 0` for the first page. A `page_size` of 0 or above 50 is treated as 50. `page_info.next_cursor` is the index of the last transaction returned; pass it as `cursor` for the next page. When `has_next_page` is false, `next_cursor` is `0`.
+
+### `get_user_transaction_count`
+
+```rust
+fn get_user_transaction_count(env: Env, user: Address) -> u64;
+```
+
+Total number of transactions recorded for an address.
 
 ## Search and filtering
 

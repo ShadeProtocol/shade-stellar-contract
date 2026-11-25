@@ -10,7 +10,7 @@ use crate::shade_interface::ShadeTrait;
 use crate::types::{
     Invoice, InvoiceFilter, InvoicePage, Merchant, MerchantAnalytics, MerchantAnalyticsSummary,
     MerchantFilter, MerchantPage, OracleConfig, PendingFee, PlatformFeeSplit, Role, TokenAnalytics,
-    Transaction,
+    Transaction, TransactionPage,
 };
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, String, Vec};
 
@@ -471,6 +471,19 @@ impl ShadeTrait for Shade {
 
     fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction> {
         history_component::get_user_transactions(&env, user)
+    }
+
+    fn get_user_transactions_page(
+        env: Env,
+        user: Address,
+        cursor: u64,
+        page_size: u32,
+    ) -> TransactionPage {
+        history_component::get_user_transactions_page(&env, &user, cursor, page_size)
+    }
+
+    fn get_user_transaction_count(env: Env, user: Address) -> u64 {
+        history_component::get_user_transaction_count(&env, &user)
     }
 
     fn get_token_analytics(env: Env, token: Address) -> TokenAnalytics {

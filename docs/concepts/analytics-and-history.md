@@ -18,7 +18,24 @@ Every successful invoice payment calls `record_merchant_payment`, which atomical
 
 ### Transaction history
 
-Every payment also records a `Transaction` entry in the user's transaction log via `record_transaction`. The log is append-only and grows with each payment.
+Every payment also records a `Transaction` entry in the user's transaction log via `record_transaction`. The log is append-only, but no storage entry grows with it: each transaction is its own entry (`UserTransaction(user, index)`, indexes start at 1) and `UserTransactionCount(user)` holds how many exist. Recording a payment writes two small entries however long the history is.
+
+#### Reading history
+
+`get_user_transactions_page(user, cursor, page_size)` returns a `TransactionPage` (`items` plus `page_info`), oldest first:
+
+- Pass `cursor = 0` for the first page; pass `page_info.next_cursor` for each following page.
+- A `page_size` of 0, or above the maximum of 50, is treated as 50.
+- `page_info.has_next_page` is `false` on the last page, and `next_cursor` is then `0`.
+- `get_user_transaction_count(user)` returns the total.
+
+`get_user_transactions(user)` is deprecated. It returns only the first page (at most 50 transactions).
+
+#### Decision: on-chain history and indexers
+
+The contract keeps a bounded, paginated on-chain history for recent and point reads. Full historical audits, filtering and analytics belong in an off-chain indexer that consumes contract events, as set out in [ADR 0009](../architecture/decisions/0009-bounded-reads-and-pagination.md).
+
+History recorded before this change was stored under the legacy `UserTransactions` key. The contract no longer reads or writes that key, so a deployment with existing history needs a one-off migration to appear in the paginated reads.
 
 ```mermaid
 flowchart LR

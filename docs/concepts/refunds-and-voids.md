@@ -69,7 +69,7 @@ Verified at [`invoice.rs:834-884`](../../contracts/shade/src/components/invoice.
 - **Validation:** if `new_amount` is supplied, panics `InvalidAmount` unless it is `> 0`. No re-validation against `admin::calculate_fee` (the "amount must exceed the fee" check `validate_invoice_creation` performs at creation time) is performed on amendment — verified absent from `amend_invoice`'s body.
 - **Interaction with paid/refunded amounts:** none possible — since the precondition requires `Pending`, `amount_paid` and `amount_refunded` are always `0` at the time an amendment can occur (nothing has been paid or refunded yet on a still-`Pending` invoice, since payment is the only way to leave `Pending` other than voiding/finalizing).
 - **Resulting state:** status unchanged (`Pending`); only `amount` and/or `description` change.
-- **Audit/history effects:** none beyond the event below — `amend_invoice` does not write to `DataKey::UserTransactions` / call `history::record_transaction`, and there is no separate amendment-history record; the emitted event is the only on-chain trace of the change.
+- **Audit/history effects:** none beyond the event below — `amend_invoice` does not write to `DataKey::UserTransaction` / call `history::record_transaction`, and there is no separate amendment-history record; the emitted event is the only on-chain trace of the change.
 - **Event:** `InvoiceAmendedEvent { invoice_id, merchant, old_amount, new_amount, timestamp }`, where `old_amount` is the pre-amendment amount and `new_amount` is the post-amendment amount (equal to `old_amount` if the call only changed the description).
 
 ## Buyer-initiated expiry claim — `claim_refund`

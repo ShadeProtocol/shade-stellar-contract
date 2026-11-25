@@ -114,6 +114,8 @@ Functions are marked as **blocked** if they call `pausable_component::assert_not
 | `propose_admin_transfer` | Allowed |
 | `accept_admin_transfer` | Allowed |
 | `get_user_transactions` | Allowed |
+| `get_user_transactions_page` | Allowed |
+| `get_user_transaction_count` | Allowed |
 | `approve_withdrawal` | Blocked |
 
 ## Operational playbook
