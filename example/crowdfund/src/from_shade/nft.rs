@@ -2,7 +2,8 @@ use shade::components::merchant;
 use crate::from_shade::errors::{CampaignError, ContractError};
 use crate::from_shade::events;
 use shade::types::{Merchant};
-use crate::from_shade::types::{DataKey, Nft, NftCollection, NftKey, NftStatus};
+use shade::types::DataKey;
+use crate::from_shade::types::{Nft, NftCollection, NftKey, NftStatus};
 use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
 
 const MAX_BPS: u32 = 10_000;

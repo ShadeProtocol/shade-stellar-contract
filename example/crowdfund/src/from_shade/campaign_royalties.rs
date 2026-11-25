@@ -3,7 +3,7 @@ use crate::from_shade::campaigns;
 use crate::from_shade::errors::ContractError;
 use crate::from_shade::events;
 use crate::from_shade::types::{CampaignRoyaltyConfig, CampaignSecondarySale, DataKey};
-use soroban_sdk::{panic_with_error, token, Address, Env, Option};
+use soroban_sdk::{panic_with_error, token, Address, Env};
 
 const MAX_BPS: u32 = 10_000;
 

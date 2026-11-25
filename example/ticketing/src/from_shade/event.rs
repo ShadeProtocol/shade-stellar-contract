@@ -1,10 +1,12 @@
 use shade::components::admin;
 use shade::components::merchant;
 use shade::components::platform_fee;
-use crate::from_shade::errors::{ContractError, EventError};
+use crate::from_shade::errors::EventError;
+use shade::errors::ContractError;
 use crate::from_shade::events;
 use shade::types::{Merchant, PlatformFeeRouteKind};
-use crate::from_shade::types::{DataKey, Event, EventKey, Ticket, TicketListing};
+use shade::types::DataKey;
+use crate::from_shade::types::{Event, EventKey, Ticket, TicketListing};
 use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
 
 const MAX_BPS: u32 = 10_000;

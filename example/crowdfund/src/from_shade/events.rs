@@ -14,7 +14,7 @@ pub struct CrossChainPledgeCreatedEvent {
     pub timestamp: u64,
 }
 
-pub fn publish_cross_chain_pledge_created(env: &Env, pledge: &crate::types::CrossChainPledge) {
+pub fn publish_cross_chain_pledge_created(env: &Env, pledge: &crate::from_shade::types::CrossChainPledge) {
     CrossChainPledgeCreatedEvent {
         pledge_id: pledge.id,
         source_chain: pledge.source_chain.clone(),
@@ -31,11 +31,11 @@ pub fn publish_cross_chain_pledge_created(env: &Env, pledge: &crate::types::Cros
 #[contractevent]
 pub struct CrossChainPledgeUpdatedEvent {
     pub pledge_id: u64,
-    pub status: crate::types::CrossChainPledgeStatus,
+    pub status: crate::from_shade::types::CrossChainPledgeStatus,
     pub timestamp: u64,
 }
 
-pub fn publish_cross_chain_pledge_updated(env: &Env, pledge: &crate::types::CrossChainPledge) {
+pub fn publish_cross_chain_pledge_updated(env: &Env, pledge: &crate::from_shade::types::CrossChainPledge) {
     CrossChainPledgeUpdatedEvent {
         pledge_id: pledge.id,
         status: pledge.status.clone(),
@@ -1585,7 +1585,7 @@ pub fn publish_creator_vesting_revoked_event(
     .publish(env);
 }
 
-/// Emitted when a fee-policy / staking campaign is created (see [`crate::types::FeeCampaign`]).
+/// Emitted when a fee-policy / staking campaign is created (see [`crate::from_shade::types::FeeCampaign`]).
 #[contractevent]
 pub struct FeeCampaignCreatedEvent {
     pub campaign_id: u64,
@@ -1620,7 +1620,7 @@ pub fn publish_fee_campaign_created_event(
 }
 
 /// Emitted when an all-or-nothing pledge campaign is created
-/// (see [`crate::types::PledgeCampaign`]).
+/// (see [`crate::from_shade::types::PledgeCampaign`]).
 #[contractevent]
 pub struct PledgeCampaignCreatedEvent {
     pub campaign_id: u64,
@@ -1658,7 +1658,7 @@ pub fn publish_pledge_campaign_created_event(
 }
 
 /// Emitted when a merchant pegs a campaign's funding target to a fiat currency
-/// (see [`crate::types::CampaignFiatGoal`]).
+/// (see [`crate::from_shade::types::CampaignFiatGoal`]).
 ///
 /// Carries the oracle and the seed price alongside the target so an indexer can
 /// render the campaign, and reproduce every later valuation, from this one event.

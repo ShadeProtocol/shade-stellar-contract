@@ -3,7 +3,8 @@ use crate::from_shade::analytics;
 use crate::from_shade::errors::{CampaignError, ContractError};
 use crate::from_shade::events;
 use shade::types::{Merchant};
-use crate::from_shade::types::{BackerCampaign, BackerKey, BackerPerk, BackerRewardTier, DataKey};
+use shade::types::DataKey;
+use crate::from_shade::types::{BackerCampaign, BackerKey, BackerPerk, BackerRewardTier};
 use soroban_sdk::{panic_with_error, token, Address, Env, String, Vec};
 
 fn get_campaign_count(env: &Env) -> u64 {

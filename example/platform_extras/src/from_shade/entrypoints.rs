@@ -1,5 +1,6 @@
 //! The entry points these modules exposed on the Shade hub, kept for reference.
 
+use super::errors::MultiSigError;
 use super::events;
 use super::types::*;
 use shade::types::*;

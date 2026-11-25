@@ -1,6 +1,7 @@
 use crate::from_shade::errors::{CampaignError, ContractError};
 use crate::from_shade::events::publish_leaderboard_updated_event;
-use crate::from_shade::types::{CampaignKey, DataKey, DonorInfo};
+use shade::types::DataKey;
+use crate::from_shade::types::{CampaignKey, DonorInfo};
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 const MAX_TOP_DONORS: u32 = 10;
