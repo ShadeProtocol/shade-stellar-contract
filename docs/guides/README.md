@@ -7,6 +7,7 @@ Task-oriented how-tos, written from the [how-to template](../contributing/templa
 - [Wallet integration guide](wallet-integration.md) — connect Freighter or any Stellar Wallets Kit wallet, build, simulate, sign, and submit `pay_invoice`, and handle authorization, token, and network prerequisites.
 - How to register and verify a merchant — *planned*.
 - [Merchant onboarding guide](merchant-onboarding.md) — ordered checklist from registration to accepting payments.
+- [Customer help articles](../help/README.md) — short answers merchants can link from checkout and support messages.
 - [Merchant webhooks and off-chain notifications](webhooks.md) — configuring `set_merchant_webhook` and building a notifier.
 - [Event indexing guide](indexing-events.md) — building a reliable off-chain indexer over Shade's events.
 - How to create and pay an invoice — *planned*.

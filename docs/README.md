@@ -7,6 +7,7 @@ Shade is a decentralized payment gateway built on Stellar/Soroban that lets merc
 - **Everyone, first:** [Getting Started → Introduction](getting-started/introduction.md) explains what Shade is, who uses it, and how a payment flows end to end. Every other page assumes it.
 - **Contract contributors** (writing or reviewing Rust/Soroban code): after the introduction, set up your toolchain with [Prerequisites](getting-started/prerequisites.md), then [Building](getting-started/building.md) and [Running Tests](getting-started/running-tests.md), then read [Architecture](architecture/README.md) and the [Glossary](glossary.md) before diving into [Contracts](contracts/README.md).
 - **Merchant integrators** (building an app or backend against Shade): start with [Getting Started](getting-started/README.md), then [Guides](guides/README.md) for task-oriented walkthroughs and [Reference](reference/README.md) for the full contract interface.
+- **Merchants helping customers:** share the short [Customer help articles](help/README.md) for wallet payments, failed or partial payments, refunds, subscriptions, and tickets.
 - **Protocol operators** (running deployments, admin duties): start with [Operations](operations/README.md) and [Security](security/README.md).
 
 ## Table of contents
@@ -20,6 +21,7 @@ Shade is a decentralized payment gateway built on Stellar/Soroban that lets merc
 | [Security](security/README.md) | Threat model, access control, reentrancy protections, and audit-relevant notes. |
 | [Reference](reference/README.md) | Glossary, error codes, storage key layout, and other lookup material. |
 | [Guides](guides/README.md) | Task-oriented how-tos for common integration and contribution tasks. |
+| [Customer help](help/README.md) | Short, linkable answers merchants can share with customers. |
 | [Operations](operations/README.md) | Runbooks for deploying, pausing, upgrading, and administering live contracts. |
 
 ## Glossary
