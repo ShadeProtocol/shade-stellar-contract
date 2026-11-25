@@ -67,6 +67,74 @@ For crates using the `tests/` directory layout, each file is its own binary and 
 | `--no-fail-fast` | Keeps going after a crate fails, so you see every failure in one run. |
 | `-- --test-threads=1` | Serializes tests; useful when you are reading interleaved output. |
 
+## Test fixtures
+
+The shade contract tests depend on two committed WASM fixtures in `contracts/shade/src/tests/fixtures/`:
+
+### `account.wasm`
+
+**Purpose:** A production copy of the `account` contract used by shade's factory tests.
+
+**Consumer:** [`test_account_factory.rs`](../../contracts/shade/src/tests/test_account_factory.rs) — tests that verify the shade hub can deploy and manage account contracts. The test uploads this fixture to the Soroban host, records its WASM hash with `set_account_wasm_hash`, and then invokes shade's account factory to verify the hash is used correctly.
+
+**How to regenerate:** The fixture must be rebuilt whenever `contracts/account/` changes, using `make fixtures`:
+
+```bash
+make fixtures
+```
+
+This command:
+
+1. Builds the account contract with `cargo build -p account --target wasm32v1-none --release`
+2. Copies the resulting WASM to `contracts/shade/src/tests/fixtures/account.wasm`
+
+**When to run:** Before committing:
+
+- After any change to `contracts/account/src/`.
+- After upgrading dependencies that could affect the account contract's compiled size or behavior.
+
+If you skip this step, shade's factory tests will run against stale account code, potentially missing real bugs or false-passing on code that would fail with the current account contract.
+
+**Symptoms of a stale fixture:**
+
+- Tests still pass but fail in unexpected ways when actually deployed to a network.
+- Account contracts created by shade during tests behave differently than the actual deployed account code.
+- Size or hash mismatches: `account.wasm` looks outdated compared to the freshly built version.
+
+### `upgrade_v2_contract.wasm`
+
+**Purpose:** A minimal mock WASM used by upgrade tests to verify the shade hub can replace its own code.
+
+**Consumers:**
+- [`test_upgrade.rs`](../../contracts/shade/src/tests/test_upgrade.rs) — tests that verify admin-initiated contract upgrades work and state persists.
+- Example module tests (see [`example/platform_extras/src/from_shade/tests/test_governance.rs`](../../example/platform_extras/src/from_shade/tests/test_governance.rs)).
+
+**What it is:** A dummy contract that serves no purpose other than being a different WASM hash than the shade contract itself. It allows tests to verify that the host correctly updates the WASM hash without needing the full shade contract source compiled twice.
+
+**How to regenerate:** This fixture was produced by compiling a minimal Soroban contract to WASM and storing it. To regenerate:
+
+1. Create a minimal contract (e.g., a stub contract with one entry point that does nothing).
+2. Compile it with `cargo build --target wasm32v1-none --release`.
+3. Copy the resulting WASM to `contracts/shade/src/tests/fixtures/upgrade_v2_contract.wasm`.
+
+For now, this fixture rarely changes and can be treated as static. If you need to update it, the process is the same as for `account.wasm`: build, copy, commit.
+
+**When to regenerate:** Almost never, unless:
+
+- Soroban SDK updates require a recompile to match new WASM format expectations.
+- The upgrade test behavior changes and requires different mock data.
+
+**Symptoms of a stale fixture:**
+
+- Upgrade tests fail with "invalid WASM" or "WASM format mismatch" errors.
+- The hash of the fixture does not match what the host reports after uploading.
+
+---
+
+For more details on upgrade compatibility, see [Upgradeability, WASM hash management, and versioning](../../docs/architecture/upgradeability.md). To understand why fixtures are tested but not committed as snapshots, see [Test snapshots § Whether to commit them](#whether-to-commit-them) below.
+
+> **Note:** Issue #364 tracks adding a CI check that detects when fixtures are out of sync with their source code. Once that check exists, CI will fail if `make fixtures` is needed but was not run before pushing.
+
 ## Test layout
 
 Tests live inside each crate.

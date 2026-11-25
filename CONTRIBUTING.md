@@ -99,6 +99,8 @@ make build  # cargo build --workspace --target wasm32v1-none --release
 make fixtures  # rebuild the account WASM that shade's tests deploy
 ```
 
+See [Test fixtures](docs/getting-started/running-tests.md#test-fixtures) for when and why to run `make fixtures`.
+
 These are exactly the commands CI runs in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — running them locally before pushing means CI should not surprise you.
 
 ## Pre-commit Hooks
