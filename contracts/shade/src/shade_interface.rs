@@ -7,7 +7,7 @@
 use crate::types::{
     Invoice, InvoiceFilter, InvoicePage, Merchant, MerchantAnalytics, MerchantAnalyticsSummary,
     MerchantFilter, MerchantPage, OracleConfig, PendingFee, PlatformFeeSplit, Role, TokenAnalytics,
-    Transaction,
+    Transaction, TransactionPage,
 };
 use soroban_sdk::{contracttrait, Address, BytesN, Env, String, Vec};
 
@@ -146,6 +146,13 @@ pub trait ShadeTrait {
     fn remove_merchant_accepted_token(env: Env, merchant: Address, token: Address);
     fn is_token_accepted_for_merchant(env: Env, merchant: Address, token: Address) -> bool;
     fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction>;
+    fn get_user_transactions_page(
+        env: Env,
+        user: Address,
+        cursor: u64,
+        page_size: u32,
+    ) -> TransactionPage;
+    fn get_user_transaction_count(env: Env, user: Address) -> u64;
     fn get_token_analytics(env: Env, token: Address) -> TokenAnalytics;
     fn get_token_volume(env: Env, token: Address) -> i128;
     fn get_token_dominance_metrics(env: Env, tokens: Vec<Address>) -> Vec<(Address, i128)>;

@@ -38,7 +38,12 @@ pub enum DataKey {
     InvoiceCount,
     // --- Analytics & fee discounts ---
     MerchantVolume(Address, Address),
+    /// Legacy single-vector history. No longer written; kept so old keys stay decodable.
     UserTransactions(Address),
+    /// Number of transactions recorded for a user (also the index of the newest one).
+    UserTransactionCount(Address),
+    /// One recorded transaction for a user, indexed from 1.
+    UserTransaction(Address, u64),
     MerchantAnalytics(Address, Address),
     MerchantAnalyticsSummary(Address),
     TokenAnalytics(Address),
@@ -296,5 +301,13 @@ pub struct InvoicePage {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MerchantPage {
     pub items: Vec<Merchant>,
+    pub page_info: PageInfo,
+}
+
+/// A paginated slice of a user's transaction history.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransactionPage {
+    pub items: Vec<Transaction>,
     pub page_info: PageInfo,
 }
