@@ -84,6 +84,25 @@ jobs:
       - name: Report contract sizes
         run: ls -l target/wasm32v1-none/release/*.wasm
 
+      - name: Install Stellar CLI
+        run: cargo install --locked stellar-cli
+
+      - name: Measure optimized WASM sizes (head)
+        run: .github/scripts/wasm-size.sh measure target/wasm32v1-none/release head-sizes.json
+
+      - name: Build base branch for comparison (PRs only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git worktree add ../base FETCH_HEAD
+          (cd ../base && cargo build --release --target wasm32v1-none)
+          .github/scripts/wasm-size.sh measure ../base/target/wasm32v1-none/release base-sizes.json || true
+
+      - name: Check WASM size budget
+        run: |
+          .github/scripts/wasm-size.sh check head-sizes.json \
+            $([ -f base-sizes.json ] && echo base-sizes.json)
+
   fmt:
     name: Format
     runs-on: ubuntu-latest
