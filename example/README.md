@@ -9,7 +9,7 @@ cargo test -p escrow
 
 ## Standalone contracts
 
-`crowdfund`, `crowdfund_factory`, `escrow`, `escrow_factory`, `subscription`, `ticketing` and `ticketing_factory` were moved here unchanged. `crowdfund` and `crowdfund_factory` did not compile before the move and still do not.
+`crowdfund`, `crowdfund_factory`, `escrow`, `escrow_factory`, `subscription`, `ticketing` and `ticketing_factory` were moved here unchanged. `crowdfund` and `crowdfund_factory` did not compile before the move; they now build and their tests pass.
 
 ## Code moved out of the Shade hub
 
