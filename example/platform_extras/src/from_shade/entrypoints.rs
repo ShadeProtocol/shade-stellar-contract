@@ -1,8 +1,9 @@
 //! The entry points these modules exposed on the Shade hub, kept for reference.
 
+use super::events;
 use super::types::*;
 use shade::types::*;
-use soroban_sdk::{Address, BytesN, Env, String, Vec};
+use soroban_sdk::{panic_with_error, Address, BytesN, Env, String, Vec};
 
 pub struct HubEntrypoints;
 
