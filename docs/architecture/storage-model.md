@@ -35,7 +35,9 @@ Every variant in [`contracts/shade/src/types.rs:32-84`](../../contracts/shade/sr
 | `Invoice(u64)` | `Invoice` record | `invoice.rs` | Written by every invoice-creating and invoice-mutating function. Read by `get_invoice` and everywhere an invoice is looked up. |
 | `InvoiceCount` | `u64` | `invoice.rs` | See [ID counters](#id-counter-pattern). |
 | `MerchantVolume(Address, Address)` | `i128` | `analytics.rs` | Legacy per-merchant/token volume figure, kept in sync alongside `MerchantAnalytics`. Read as a fallback inside `get_merchant_analytics` when no `MerchantAnalytics` entry exists yet. |
-| `UserTransactions(Address)` | — | `history.rs` (not read in full for this page) | Per-user transaction history. |
+| `UserTransactions(Address)` | — | none (legacy) | Former single-vector history. No longer written or read. |
+| `UserTransactionCount(Address)` | `u64` | `history.rs` | Number of transactions recorded for the user; also the index of the newest one. |
+| `UserTransaction(Address, u64)` | `Transaction` | `history.rs` | One recorded transaction, indexed from 1. |
 | `MerchantAnalytics(Address, Address)` | `MerchantAnalytics` record | `analytics.rs` | Written by `record_merchant_payment`. Read by `get_merchant_analytics`, `get_merchant_volume`. |
 | `MerchantAnalyticsSummary(Address)` | `MerchantAnalyticsSummary` record | `analytics.rs` | Written by `record_merchant_payment`. Read by `get_merchant_analytics_summary`. |
 | `TokenAnalytics(Address)` | `TokenAnalytics` record | `analytics.rs` | Written by `record_token_payment`. Read by `get_token_analytics`. |

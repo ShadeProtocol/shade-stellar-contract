@@ -154,6 +154,8 @@ Every public function in `ShadeTrait` is listed below. "Admin" means only the st
 | `remove_merchant_accepted_token` | Merchant | `require_auth` |
 | `is_token_accepted_for_merchant` | Anyone | None |
 | `get_user_transactions` | Anyone | None |
+| `get_user_transactions_page` | Anyone | None |
+| `get_user_transaction_count` | Anyone | None |
 | `approve_withdrawal` | Signer | `require_auth` |
 | `search_invoices_paginated` | Caller | `require_auth` |
 | `search_merchants_paginated` | Anyone | None |
