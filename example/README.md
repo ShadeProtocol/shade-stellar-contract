@@ -17,10 +17,19 @@ Each `src/from_shade/` folder holds modules that used to live inside `contracts/
 
 | Crate | Modules |
 |---|---|
-| `crowdfund` | `analytics`, `backer_rewards`, `campaign`, `campaign_royalties`, `campaigns`, `comments`, `cross_chain_pledge`, `fiat_goals`, `kyc`, `leaderboard`, `nft`, `pledge`, `stretch_goals`, `vesting`, `voting` |
+| `crowdfund` | `analytics`, `backer_rewards`, `campaign`, `campaigns`, `comments`, `cross_chain_pledge`, `fiat_goals`, `leaderboard`, `nft`, `pledge`, `stretch_goals`, `vesting`, `voting` |
 | `escrow` | `escrow` |
 | `subscription` | `subscription`, subscription searches |
 | `ticketing` | `event`, event searches |
 | `platform_extras` | `governance`, `bridge`, `multisig_withdrawal`, withdrawal proposal searches |
 
-Calls into the gateway use the `shade` crate (`shade::components::merchant`, `shade::types::Invoice`, and so on). This code is reference material and has not been fixed. It sits behind the `from-shade` feature, which is off by default, so the default build of each crate is unaffected. With the feature on, `escrow` compiles; the other crates still have errors from the code itself.
+Calls into the gateway use the `shade` crate (`shade::components::merchant`, `shade::types::Invoice`, and so on). This code is reference material. It sits behind the `from-shade` feature, which is off by default, so the default build of each crate is unaffected. With the feature on, every crate builds. Two `crowdfund` modules were removed instead of ported (see "Removed modules" below).
+
+## Removed modules
+
+These `crowdfund` modules sat behind `from-shade` and depended on hub events, types and error variants that no longer exist, so they were removed instead of ported.
+
+| Module | Needed (no longer present) | Recover from git history |
+|---|---|---|
+| `kyc` | `publish_kyc_*_event` functions, KYC types and error variants | introduced in commit `a887737` |
+| `campaign_royalties` | `CampaignRoyaltyConfig`, `CampaignSecondarySale`, royalty error variants, `publish_campaign_*` events | introduced in commit `76a10bd` |
