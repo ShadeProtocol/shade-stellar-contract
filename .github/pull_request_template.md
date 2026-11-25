@@ -62,6 +62,7 @@ Fixes #
 
 - [ ] My code follows the project's style guidelines
 - [ ] Bounded reads and pagination policy followed for all queries and collections (see [ADR 0009](../docs/architecture/decisions/0009-bounded-reads-and-pagination.md))
+- [ ] If this PR touches `contracts/`, I completed the [Security Review Checklist for Contract PRs](../docs/security/pr-review-checklist.md)
 - [ ] I have performed a self-review of my own code
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] My changes generate no new warnings
