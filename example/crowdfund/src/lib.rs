@@ -324,12 +324,6 @@ enum DataKey {
     Contributors,
     RefundProcessed,
     MatchingPool,
-    TotalMatched,
-    Badge(Address, u32),
-    BadgeCount(Address),
-    EarlyBackerLimit,
-    WhaleThreshold,
-    DiscountTiers,
     // Public comment attached to a contributor pledge.
     // ── Affiliate / referral tracking (#349) ────────────────────────────────
     // Commission rate (in basis points) paid to affiliates from the raised pool.
