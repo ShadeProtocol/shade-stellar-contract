@@ -1,6 +1,6 @@
 use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
 
-use crate::{
+use crate::from_shade::{
     errors::ContractError,
     events,
     types::{BridgeKey, CrossChainPledge, CrossChainPledgeStatus},

@@ -5,6 +5,7 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum ContractError {
+    InvalidInterval = 305,
     /// Generic "record does not exist" for lookups without a dedicated code.
     NotFound = 48,
 }
