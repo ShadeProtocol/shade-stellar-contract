@@ -209,8 +209,8 @@ pub trait ShadeTrait {
     fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction>;
 
     /// Paginated transaction history for a customer address, oldest first.
-    /// Pass `cursor = 0` for the first page. `page_size` is clamped to
-    /// `1..=50` (`MAX_TRANSACTION_PAGE_SIZE`).
+    /// Pass `cursor = 0` for the first page. A `page_size` of 0 or above 50
+    /// (`MAX_TRANSACTION_PAGE_SIZE`) is treated as 50.
     fn get_user_transactions_page(
         env: Env,
         user: Address,

@@ -31,8 +31,8 @@ pub fn get_user_transaction_count(env: &Env, user: &Address) -> u64 {
 /// Return a page of `user`'s transactions, oldest first, starting after
 /// `cursor` (exclusive).
 ///
-/// Pass `cursor = 0` for the first page. `page_size` is clamped to
-/// `1..=MAX_TRANSACTION_PAGE_SIZE`. `PageInfo.next_cursor` is the index of the
+/// Pass `cursor = 0` for the first page. A `page_size` of 0 or above
+/// `MAX_TRANSACTION_PAGE_SIZE` is treated as `MAX_TRANSACTION_PAGE_SIZE`. `PageInfo.next_cursor` is the index of the
 /// last transaction returned; use it as `cursor` in the next call. A
 /// `next_cursor` of `0` means there are no more pages.
 pub fn get_user_transactions_page(
@@ -42,7 +42,12 @@ pub fn get_user_transactions_page(
     page_size: u32,
 ) -> TransactionPage {
     let total = get_user_transaction_count(env, user);
-    let limit = page_size.clamp(1, MAX_TRANSACTION_PAGE_SIZE) as u64;
+    let size = if page_size == 0 || page_size > MAX_TRANSACTION_PAGE_SIZE {
+        MAX_TRANSACTION_PAGE_SIZE
+    } else {
+        page_size
+    };
+    let limit = size as u64;
     let start = cursor.saturating_add(1);
     let end = start.saturating_add(limit - 1).min(total);
 
