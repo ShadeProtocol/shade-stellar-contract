@@ -5,14 +5,14 @@ use shade::types::*;
 #[contractevent]
 pub struct BridgePlaceholderEvent {
     pub caller: Address,
-    pub payload: crate::types::CrossChainBridgePayload,
+    pub payload: crate::from_shade::types::CrossChainBridgePayload,
     pub timestamp: u64,
 }
 
 pub fn publish_bridge_placeholder_event(
     env: &Env,
     caller: Address,
-    payload: crate::types::CrossChainBridgePayload,
+    payload: crate::from_shade::types::CrossChainBridgePayload,
     timestamp: u64,
 ) {
     BridgePlaceholderEvent {

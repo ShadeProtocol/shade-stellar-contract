@@ -204,7 +204,7 @@ pub fn get_crowdfund_vesting_config(env: &Env, crowdfund_id: u64) -> CrowdfundVe
 pub fn get_vesting_schedule(env: &Env, timeline_id: u64, tranche_index: u64) -> VestingSchedule {
     env.storage()
         .persistent()
-        .get(&DataKey::VestingSchedule(timeline_id, tranche_index))
+        .get(&CampaignKey::VestingSchedule(timeline_id, tranche_index))
         .unwrap_or_else(|| panic_with_error!(env, shade::errors::ContractError::InvoiceNotFound))
 }
 

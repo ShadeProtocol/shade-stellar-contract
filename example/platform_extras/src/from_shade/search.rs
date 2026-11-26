@@ -1,6 +1,6 @@
 use crate::from_shade::events;
-use shade::types::{Invoice, InvoiceFilter, InvoicePage, Merchant, MerchantFilter, MerchantPage, PageInfo};
-use crate::from_shade::types::{DataKey, Event, EventFilter, EventKey, MultiSigKey, Subscription, SubscriptionFilter, SubscriptionPlan, SubscriptionPlanFilter, WithdrawalProposal, WithdrawalProposalFilter};
+use shade::types::{DataKey, Invoice, InvoiceFilter, InvoicePage, Merchant, MerchantFilter, MerchantPage, PageInfo};
+use crate::from_shade::types::{Event, EventFilter, EventKey, MultiSigKey, Subscription, SubscriptionFilter, SubscriptionPlan, SubscriptionPlanFilter, WithdrawalProposal, WithdrawalProposalFilter};
 use soroban_sdk::{Address, Env, Vec};
 
 /// Return all withdrawal proposals matching `filter`.
