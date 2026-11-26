@@ -137,3 +137,159 @@ jobs:
 
       - name: Format Check
         run: cargo fmt --all -- --check
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup component add llvm-tools-preview
+          rustc --version
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      # Tests deploy the real account contract, so rebuild it from this commit.
+      - name: Rebuild account fixture
+        run: make fixtures
+
+      - name: Run coverage (lcov)
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path target/lcov.info
+
+      - name: Upload lcov report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-coverage-report
+          path: target/lcov.info
+
+      - name: Summarize coverage and check soft threshold
+        env:
+          SOFT_LINE_THRESHOLD: "85.0"
+        run: |
+          cargo llvm-cov report --json --summary-only > target/coverage-summary.json
+          python3 - <<'PY'
+          import json, os
+
+          baselines = {
+              "account": {"lines": 96.83, "regions": 95.18, "functions": 82.98},
+              "shade": {"lines": 88.16, "regions": 84.98, "functions": 80.32},
+              "total": {"lines": 89.07, "regions": 86.01, "functions": 80.67},
+          }
+
+          with open("target/coverage-summary.json") as f:
+              data = json.load(f)
+
+          files = data["data"][0]["files"]
+          rows = []
+          for crate in ("account", "shade"):
+              cf = [x for x in files if f"/contracts/{crate}/" in x["filename"]]
+              lc = sum(x["summary"]["lines"]["covered"] for x in cf)
+              lt = sum(x["summary"]["lines"]["count"] for x in cf)
+              rc = sum(x["summary"]["regions"]["covered"] for x in cf)
+              rt = sum(x["summary"]["regions"]["count"] for x in cf)
+              fc = sum(x["summary"]["functions"]["covered"] for x in cf)
+              ft = sum(x["summary"]["functions"]["count"] for x in cf)
+              lp = (lc / lt * 100) if lt else 0.0
+              rp = (rc / rt * 100) if rt else 0.0
+              fp = (fc / ft * 100) if ft else 0.0
+              dl = lp - baselines[crate]["lines"]
+              rows.append(
+                  f"| `{crate}` | {lp:.2f}% ({lc}/{lt}) | {dl:+.2f}% | {rp:.2f}% ({rc}/{rt}) | {fp:.2f}% ({fc}/{ft}) |"
+              )
+
+          tot = data["data"][0]["totals"]
+          tlp = tot["lines"]["percent"]
+          trp = tot["regions"]["percent"]
+          tfp = tot["functions"]["percent"]
+          dtl = tlp - baselines["total"]["lines"]
+          rows.append(
+              f"| **Workspace Total** | **{tlp:.2f}% ({tot['lines']['covered']}/{tot['lines']['count']})** | **{dtl:+.2f}%** | **{trp:.2f}% ({tot['regions']['covered']}/{tot['regions']['count']})** | **{tfp:.2f}% ({tot['functions']['covered']}/{tot['functions']['count']})** |"
+          )
+
+          threshold = float(os.environ["SOFT_LINE_THRESHOLD"])
+          status = (
+              f"Workspace line coverage `{tlp:.2f}%` meets soft threshold `{threshold:.1f}%`."
+              if tlp >= threshold
+              else f"::warning::Workspace line coverage {tlp:.2f}% is below soft threshold {threshold:.1f}%."
+          )
+          if tlp < threshold:
+              print(status)
+
+          md = "\n".join([
+              "### Code Coverage Summary",
+              "",
+              "| Crate | Line Coverage | vs Baseline | Region Coverage | Function Coverage |",
+              "|---|---|---|---|---|",
+              *rows,
+              "",
+              f"Soft line coverage threshold: **{threshold:.1f}%** (non-blocking).",
+          ])
+
+          with open("target/coverage-comment.md", "w") as out:
+              out.write(md + "\n")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as s:
+                  s.write(md + "\n")
+          PY
+
+      - name: Post coverage summary on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- shade-coverage-summary -->';
+            const body = `${marker}\n${fs.readFileSync('target/coverage-comment.md', 'utf8')}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 50,
+              });
+              const existing = comments.find((c) => c.body && c.body.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body,
+                });
+              }
+            } catch (err) {
+              // Fork PRs have read-only tokens; keep the job green and rely on step summary + artifact.
+              core.warning(`Could not post PR coverage comment: ${err.message}`);
+            }

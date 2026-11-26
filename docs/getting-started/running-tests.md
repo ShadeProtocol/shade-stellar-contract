@@ -18,6 +18,39 @@ This is exactly what CI runs ([`.github/workflows/ci.yml`](../../.github/workflo
 
 The [`Makefile`](../../Makefile) wraps this as `make test`.
 
+## Code coverage
+
+Workspace code coverage is measured with [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov) and reported in CI on every push and pull request.
+
+### Running coverage locally
+
+Install the LLVM tools component and `cargo-llvm-cov` once:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install --locked cargo-llvm-cov
+```
+
+Then run:
+
+```bash
+make coverage
+```
+
+This rebuilds the `account` WASM fixture, runs `cargo llvm-cov --workspace --all-features --lcov --output-path target/lcov.info`, and prints a per-file and workspace summary.
+
+### Baseline coverage
+
+Recorded on `contrib` (`1.100.0` toolchain, stable `cargo-llvm-cov` — region coverage tracks conditional/branch execution at the MIR region level because LLVM MC/DC branch coverage requires nightly):
+
+| Crate | Line Coverage | Region Coverage | Function Coverage |
+|---|---|---|---|
+| `account` | 96.83% (366/378) | 95.18% (316/332) | 82.98% (39/47) |
+| `shade` | 88.16% (2845/3227) | 84.98% (2530/2977) | 80.32% (249/310) |
+| **Workspace Total** | **89.07% (3211/3605)** | **86.01% (2846/3309)** | **80.67% (288/357)** |
+
+CI uploads `target/lcov.info` as the `lcov-coverage-report` workflow artifact, posts a coverage delta summary on pull requests, and enforces a non-blocking **85.0%** soft line coverage threshold (warning only) until coverage is raised further.
+
 ### A single crate
 
 ```bash

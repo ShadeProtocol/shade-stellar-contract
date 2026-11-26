@@ -26,7 +26,7 @@ STELLAR_DIR = .stellar
 # Phony Targets
 # ============================================================================
 
-.PHONY: help build test optimize clean fmt lint fixtures \
+.PHONY: help build test coverage optimize clean fmt lint fixtures \
 	deploy deploy-dry-run deploy-shade deploy-account deploy-all \
 	init-shade \
 	pause-shade unpause-shade upgrade-shade \
@@ -67,6 +67,12 @@ build: ## Build all contracts
 test: ## Run all tests
 	@echo "Running tests..."
 	@cargo test --workspace --all-features
+
+coverage: fixtures ## Generate workspace code coverage report (lcov)
+	@echo "Running code coverage..."
+	@cargo llvm-cov --workspace --all-features --lcov --output-path target/lcov.info
+	@cargo llvm-cov report --summary-only
+	@echo "LCOV report written to target/lcov.info"
 
 optimize: build ## Optimize WASM binaries
 	@echo "Optimizing contracts..."
