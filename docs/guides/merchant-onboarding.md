@@ -2,6 +2,10 @@
 
 An ordered, executable checklist for taking a merchant from nothing to accepting payments on Shade, with the required [signer](../glossary.md#admin) and a verification call at every step.
 
+## Customer help
+
+Share the [Customer help articles](../help/README.md) from your checkout or support messages. Each article has a stable link for common questions about payments, refunds, subscriptions, and tickets.
+
 ## Prerequisites
 
 - **A funded Stellar account** for the merchant, and a separate funded account for the platform [admin](../glossary.md#admin) if you are also standing up the platform side. See [Prerequisites](../getting-started/prerequisites.md) for toolchain setup and [Quickstart](../getting-started/quickstart.md) for generating and funding test identities with `stellar keys generate` / `stellar keys fund`.
