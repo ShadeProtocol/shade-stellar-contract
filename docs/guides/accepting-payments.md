@@ -265,6 +265,7 @@ Confirm `status` is `Paid` (or `PartiallyPaid` with the expected `amount_paid`) 
 
 ## Related pages
 
+- [E-commerce checkout](ecommerce-checkout.md) — complete online-store flow built on top of this payment path.
 - [Events reference](../reference/events.md) — every event this flow can emit, and how to decode one.
 - [The component pattern](../architecture/component-pattern.md) — how `pay_invoice` is wired from `shade_interface.rs` through to the `invoice` component.
 - [Architecture overview](../architecture/overview.md) — the full `pay_invoice` request lifecycle and guard order.

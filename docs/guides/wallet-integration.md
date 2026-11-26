@@ -559,6 +559,7 @@ The native token's contract ID comes from `stellar contract id asset --asset nat
 
 ## Related pages
 
+- [E-commerce checkout](ecommerce-checkout.md) — complete online-store flow built on top of this wallet payment step.
 - [Accepting payments](accepting-payments.md) — the contract-side payment flow, partial and batch payments, and fiat-priced invoices.
 - [Generating and using contract bindings](contract-bindings.md) — producing the `Client` used throughout this guide.
 - [Access control](../security/access-control.md) — which roles and addresses authorize which functions.

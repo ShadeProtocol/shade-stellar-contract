@@ -66,6 +66,7 @@
 - [Guides](guides/README.md)
   - [Merchant Onboarding](guides/merchant-onboarding.md)
   - [Accepting Payments](guides/accepting-payments.md)
+  - [E-commerce Checkout](guides/ecommerce-checkout.md)
   - [Contract Bindings](guides/contract-bindings.md)
   - [Indexing Events](guides/indexing-events.md)
   - [Deploying Ticketing Contracts](guides/deploying-ticketing-contracts.md)
