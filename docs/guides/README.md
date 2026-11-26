@@ -8,6 +8,7 @@ Task-oriented how-tos, written from the [how-to template](../contributing/templa
 - [Payment links and QR codes](payment-links.md) — share hosted invoice links, understand SEP-7's current Soroban support, and generate scannable payment QR codes.
 - How to register and verify a merchant — *planned*.
 - [Merchant onboarding guide](merchant-onboarding.md) — ordered checklist from registration to accepting payments.
+- [Customer help articles](../help/README.md) — short answers merchants can link from checkout and support messages.
 - [Merchant webhooks and off-chain notifications](webhooks.md) — configuring `set_merchant_webhook` and building a notifier.
 - [Event indexing guide](indexing-events.md) — building a reliable off-chain indexer over Shade's events.
 - [Deploying ticketing contracts](deploying-ticketing-contracts.md) — deploying organizer-specific ticketing contracts through `ticketing_factory`, running the organizer flow, and indexing factory deployments.
