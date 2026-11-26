@@ -256,7 +256,8 @@ docs-serve: ## Preview the docs site locally
 	@mdbook-mermaid install docs
 	@mdbook serve docs --open
 
-docs-check: ## Run docs link checks
+docs-check: ## Check reference coverage and docs links (Python 3 and lychee)
+	@python3 scripts/check_reference_docs.py
 	@lychee --config lychee.toml docs README.md CONTRIBUTING.md
 
 ci: lint test build ## CI pipeline (lint, test, build)

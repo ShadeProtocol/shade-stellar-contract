@@ -14,7 +14,7 @@ Every successful invoice payment calls `record_merchant_payment`, which atomical
 
 1. **Per-merchant, per-token** (`MerchantAnalytics`) — volume, fees, and count for a specific merchant and token pair.
 2. **Per-merchant summary** (`MerchantAnalyticsSummary`) — aggregated across all tokens for a given merchant.
-3. **Per-token global** (`TokenAnalytics`) — volume, fees, count, and unique merchant count across all merchants using that token.
+3. **Per-token global** (`TokenAnalytics`) — volume, fees, count, and a merchant-count counter for that token. The counter has a [known limitation](#tokenanalytics-fields); do not read it as a distinct-merchant count.
 
 ### Transaction history
 
@@ -34,11 +34,11 @@ flowchart LR
 
 | Type / key | Defined in | Purpose |
 |---|---|---|
-| `MerchantAnalytics` | [`contracts/shade/src/types.rs#L458-L465`](../../contracts/shade/src/types.rs) | Per-merchant, per-token volume, fees, and count |
-| `MerchantAnalyticsSummary` | [`contracts/shade/src/types.rs#L469-L475`](../../contracts/shade/src/types.rs) | Per-merchant aggregate across all tokens |
-| `TokenAnalytics` | [`contracts/shade/src/types.rs#L536-L543`](../../contracts/shade/src/types.rs) | Global per-token volume, fees, unique merchants |
-| `Transaction` | [`contracts/shade/src/types.rs#L555-L563`](../../contracts/shade/src/types.rs) | Individual transaction record |
-| `TransactionType` | [`contracts/shade/src/types.rs#L548-L551`](../../contracts/shade/src/types.rs) | `InvoicePayment` |
+| `MerchantAnalytics` | [`contracts/shade/src/types.rs#L175-L182`](../../contracts/shade/src/types.rs) | Per-merchant, per-token volume, fees, and count |
+| `MerchantAnalyticsSummary` | [`contracts/shade/src/types.rs#L186-L192`](../../contracts/shade/src/types.rs) | Per-merchant aggregate across all tokens |
+| `TokenAnalytics` | [`contracts/shade/src/types.rs#L204-L211`](../../contracts/shade/src/types.rs) | Global per-token volume, fees, count, and merchant counter |
+| `Transaction` | [`contracts/shade/src/types.rs#L223-L231`](../../contracts/shade/src/types.rs) | Individual transaction record |
+| `TransactionType` | [`contracts/shade/src/types.rs#L216-L219`](../../contracts/shade/src/types.rs) | `InvoicePayment` in current flows; `SubscriptionCharge` is defined but unused |
 
 ### MerchantAnalytics fields
 
@@ -65,14 +65,16 @@ flowchart LR
 | `total_volume` | `i128` | Sum of all merchants' volume for this token |
 | `total_fees` | `i128` | Sum of all merchants' fees for this token |
 | `transaction_count` | `u64` | Sum of all merchants' transaction counts for this token |
-| `unique_merchants` | `u64` | Distinct merchant count using this token |
+| `unique_merchants` | `u64` | Merchant counter; see the warning below |
 | `last_updated` | `u64` | Set to current ledger timestamp on each update |
+
+> **Warning:** `TokenAnalytics.unique_merchants` is not a distinct-merchant count. `record_token_payment` increments it only when the token's stored volume is `0` before the payment, so it is `1` for any token that has recorded a payment. Count distinct merchants from events. See [Token analytics and market share metrics](token-analytics.md#tokenanalytics-fields) for details.
 
 ### Transaction fields
 
 | Field | Type | Description |
 |---|---|---|
-| `transaction_type` | `TransactionType` | `InvoicePayment` |
+| `transaction_type` | `TransactionType` | `InvoicePayment` in current flows |
 | `ref_id` | `u64` | Invoice ID |
 | `amount` | `i128` | Payment amount |
 | `token` | `Address` | Token used for payment |
@@ -84,11 +86,11 @@ flowchart LR
 
 | Function | Defined in | Purpose |
 |---|---|---|
-| `record_merchant_payment` | [`contracts/shade/src/components/analytics.rs#L243-L278`](../../contracts/shade/src/components/analytics.rs) | Update analytics after a payment |
-| `get_merchant_volume` | [`contracts/shade/src/components/analytics.rs#L208-L210`](../../contracts/shade/src/components/analytics.rs) | Read total volume for a merchant/token pair |
-| `get_merchant_analytics` | [`contracts/shade/src/components/analytics.rs#L212-L228`](../../contracts/shade/src/components/analytics.rs) | Read full analytics for a merchant/token pair |
-| `get_merchant_analytics_summary` | [`contracts/shade/src/components/analytics.rs#L230-L241`](../../contracts/shade/src/components/analytics.rs) | Read aggregated analytics across all tokens |
-| `get_token_analytics` | [`contracts/shade/src/components/analytics.rs#L280-L292`](../../contracts/shade/src/components/analytics.rs) | Read global token analytics |
+| `record_merchant_payment` | [`contracts/shade/src/components/analytics.rs#L42-L77`](../../contracts/shade/src/components/analytics.rs) | Update analytics after a payment |
+| `get_merchant_volume` | [`contracts/shade/src/components/analytics.rs#L7-L9`](../../contracts/shade/src/components/analytics.rs) | Read total volume for a merchant/token pair |
+| `get_merchant_analytics` | [`contracts/shade/src/components/analytics.rs#L11-L27`](../../contracts/shade/src/components/analytics.rs) | Read full analytics for a merchant/token pair |
+| `get_merchant_analytics_summary` | [`contracts/shade/src/components/analytics.rs#L29-L40`](../../contracts/shade/src/components/analytics.rs) | Read aggregated analytics across all tokens |
+| `get_token_analytics` | [`contracts/shade/src/components/analytics.rs#L79-L91`](../../contracts/shade/src/components/analytics.rs) | Read global token analytics |
 | `get_user_transactions` | [`contracts/shade/src/components/history.rs#L17-L22`](../../contracts/shade/src/components/history.rs) | Read full transaction log for a user |
 
 ## What analytics do not cover
@@ -108,8 +110,15 @@ Use on-chain analytics for dashboards, quick queries, and verification. Use even
 
 > **Note:** The `last_updated` field is set on every payment. If a [merchant](../glossary.md#merchant) has no recent activity, the timestamp reflects the last payment, not the current time.
 
+## How analytics are tested
+
+The suite in [`test_analytics_aggregation.rs`](../../contracts/shade/src/tests/test_analytics_aggregation.rs) drives real invoice payments through a mock Stellar environment and checks the three analytics views after each scenario. It covers cumulative volume and fees, per-token and per-merchant isolation, `last_updated` accuracy, discount interactions, refund immutability, and zero-amount rejection.
+
+Read the [Analytics test suite](../getting-started/analytics-tests.md) page for the complete 16-test inventory, related tests, and the commands to run a subset.
+
 ## Related pages
 
+- [Analytics test suite](../getting-started/analytics-tests.md) — verified inventory of the analytics tests and how to run them.
 - [Token analytics and market share metrics](token-analytics.md)
 - [Invoices and payment](payment-payloads-and-routing.md)
 - [Auto-withdrawal and merchant settlement](auto-withdrawal.md)

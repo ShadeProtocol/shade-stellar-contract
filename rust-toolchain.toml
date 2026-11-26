@@ -1,0 +1,17 @@
+# Pinned Rust toolchain for the whole repository, including `example/`.
+#
+# rustup reads this file automatically, so every `cargo` command run inside the
+# repository uses exactly this compiler, and CI installs it from here instead of
+# floating on `stable`. A reproducible compiler is what lets anyone rebuild a
+# tagged commit and get byte-identical WASM to what was deployed.
+#
+# 1.100.0 is the stable release CI last built and tested green against
+# soroban-sdk 23.4.0 (resolved to 23.5.3 in Cargo.lock). soroban-sdk 23.x needs
+# 1.84.0 or newer.
+#
+# To bump it, follow "Bumping the Rust toolchain" in CONTRIBUTING.md.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32v1-none"]
+profile = "minimal"

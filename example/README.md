@@ -33,3 +33,7 @@ These `crowdfund` modules sat behind `from-shade` and depended on hub events, ty
 |---|---|---|
 | `kyc` | `publish_kyc_*_event` functions, KYC types and error variants | introduced in commit `a887737` |
 | `campaign_royalties` | `CampaignRoyaltyConfig`, `CampaignSecondarySale`, royalty error variants, `publish_campaign_*` events | introduced in commit `76a10bd` |
+
+## Restoring a module into the hub
+
+If you need one of these modules to run inside the shade hub contract rather than as a standalone contract, follow the step-by-step instructions in [Restoring an Example Module into the Hub](docs/restoring-a-module.md). It walks through porting components, types, events, and entry points, choosing non-colliding error discriminants, and evaluating the trade-offs in audit surface, WASM size, and storage compatibility.

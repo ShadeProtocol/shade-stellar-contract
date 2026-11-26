@@ -6,7 +6,7 @@ Every [`#[contracterror]`](https://docs.rs/soroban-sdk) enum in the workspace, t
 
 Error codes are scoped to the contract that raised them, not global. `1` in [`account`](#account-contracts-src-errorsrs) means `AlreadyInitialized`; `1` in [`shade`](#shade-contracts-shade-src-errorsrs) means `NotAuthorized`. Always pair a numeric code with the contract it came from — the contract ID in the failed transaction tells you which table below to read.
 
-The `shade` crate is the one exception with internal structure: it partitions nine error enums into non-overlapping numeric ranges within the same contract, specifically so a raw code observed on-chain against the `shade` contract ID maps back to exactly one variant. See [`contracts/shade/src/errors.rs#L1-L23`](../../contracts/shade/src/errors.rs):
+The `shade` crate is the one exception with internal structure: it reserves the core range for `ContractError`, so a raw code observed on-chain against the `shade` contract ID maps back to a variant in that enum. See [`contracts/shade/src/errors.rs#L1-L23`](../../contracts/shade/src/errors.rs):
 
 | Range | Enum |
 |---|---|
@@ -16,7 +16,7 @@ The `shade` crate is the one exception with internal structure: it partitions ni
 
 ## `shade` (`contracts/shade/src/errors.rs`)
 
-The `shade` hub contract is the primary payment-processing entry point most integrators call against. Its errors are split into nine enums because Soroban caps a single `#[contracterror]` enum at 50 variants.
+The `shade` hub contract is the primary payment-processing entry point most integrators call against. Its current errors are defined in `ContractError`.
 
 ### `ContractError`
 
@@ -59,6 +59,8 @@ The `shade` hub contract is the primary payment-processing entry point most inte
 ## `account` (`contracts/account/src/errors.rs`)
 
 Errors from the per-merchant `account` contract (deployed via the hub's `set_account_wasm_hash`/`register_merchant` flow). This contract's `ContractError` enum is independent of `shade`'s — code `1` here is `AlreadyInitialized`, not `NotAuthorized`.
+
+### `ContractError`
 
 | Error | Code | Trigger | Corrective action |
 |---|---:|---|---|

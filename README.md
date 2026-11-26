@@ -22,8 +22,7 @@ Shade enables merchants, freelancers, and enterprises to accept digital payments
 ### Prerequisites
 
 Ensure you have the following installed:
-- [Rust](https://www.rust-lang.org/tools/install)
-- `wasm32v1-none` target: `rustup target add wasm32v1-none`
+- [Rust](https://www.rust-lang.org/tools/install) via `rustup`. The version is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so rustup installs it, with the `wasm32v1-none` target, the first time you run `cargo` here.
 - [Soroban CLI](https://soroban.stellar.org/docs/getting-started/setup#install-the-soroban-cli)
 
 ### Installation

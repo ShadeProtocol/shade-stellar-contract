@@ -1,0 +1,13 @@
+# Fund-handling contracts: contract maintainers.
+/contracts/shade/ @codebestia
+/contracts/account/ @codebestia
+
+# CI and build entrypoints: maintainers with admin rights.
+/.github/workflows/ @codebestia
+/Makefile @codebestia
+
+# Documentation: docs maintainers.
+/docs/ @codebestia @0xDeon
+
+# Examples are outside CI: optional, lower-priority owners.
+/example/ @0xDeon

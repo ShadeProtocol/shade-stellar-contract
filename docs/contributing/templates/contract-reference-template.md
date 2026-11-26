@@ -11,7 +11,7 @@ One or two sentences: what this contract does and where its crate lives (e.g. `c
 
 ## Contract interface
 
-The trait defining this contract's public interface: [`<path>`](../../../contracts/shade/src/interface.rs).
+The trait defining this contract's public interface: [`<path>`](../../../contracts/shade/src/shade_interface.rs).
 
 ## Functions
 

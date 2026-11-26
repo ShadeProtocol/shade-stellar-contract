@@ -211,6 +211,8 @@ pub fn resell_ticket(env: Env, seller: Address, buyer: Address, ticket_id: u64, 
 
 ### Cancellation and refunds
 
+> **Note:** [Ticket transfers, refunds, and event cancellation](../concepts/ticket-transfers-and-refunds.md) covers these flows for organizers and frontends, including what still works after `cancel_event` and how a refund affects tier and waitlist counts.
+
 #### `refund_ticket`
 
 ```rust
@@ -373,6 +375,8 @@ All defined as `#[contractevent]` structs in `contracts/ticketing/src/lib.rs` an
 
 ## Relationship to Shade
 
+> **Note:** Since [ADR 0007](../../../docs/architecture/decisions/0007-core-gateway-scope.md) the hub's ticketing module described below has moved to `example/ticketing/src/from_shade/` and is no longer callable on `shade`. [Choosing a ticketing model](../concepts/choosing-a-ticketing-model.md) has the current, verified comparison and recommendations.
+
 `contracts/ticketing` and `contracts/ticketing_factory` are entirely independent of the Shade hub. Confirmed directly from source: `contracts/shade/Cargo.toml` depends only on `account` and `soroban-sdk`; there is no reference to `ticketing`/`ticketing_factory` anywhere in `contracts/shade/src`, and no `invoke_contract`/`deployer()` call in the hub targets either crate. They share no types, no storage, and no runtime dependency in either direction.
 
 The Shade hub has its own, separately implemented ticketing feature — `create_event`, `purchase_ticket`, `configure_dynamic_pricing`, `get_current_ticket_price`, `resell_ticket`, `purchase_tickets_bulk`, `cancel_event_and_batch_refund` in `contracts/shade/src/components/event.rs`, fully documented at [Event ticketing, dynamic pricing, and resale](../concepts/event-ticketing.md). These hub functions are **not wrappers, orchestration, or delegation** around the standalone crate — they are a separate, direct implementation against the hub's own `Event`/`Ticket`/`TicketListing` types in `contracts/shade/src/types.rs`.
@@ -394,6 +398,8 @@ For an integrator building against Shade: use the **hub's own ticketing function
 
 ## Related pages
 
+- [Choosing a ticketing model](../concepts/choosing-a-ticketing-model.md) — which ticketing model to use, with a full feature comparison.
+- [Ticket transfers, refunds, and event cancellation](../concepts/ticket-transfers-and-refunds.md) — who holds a ticket, and what refunds and cancellation do.
 - [Event ticketing, dynamic pricing, and resale](../concepts/event-ticketing.md) — the Shade hub's own ticketing feature, documented in full.
 - [Escrow contract reference](escrow.md) — the sibling standalone-crate-vs-hub pattern, including the same random-salt factory idiom.
 - [Protocol Glossary](../../../docs/glossary.md) — `event`, `ticket` terms (the hub's own domain "Event" type, distinct from Soroban's platform-level "event" mechanism).

@@ -1,0 +1,151 @@
+name: Testnet Smoke Test
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: testnet-smoke
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  smoke-test:
+    name: Testnet Smoke Test
+    runs-on: ubuntu-latest
+    # Non-blocking: failures are reported via tracking issue without blocking development.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+
+      - name: Cache cargo registry and binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-testnet-smoke-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-testnet-smoke-
+
+      - name: Install Stellar CLI
+        run: |
+          if ! command -v stellar >/dev/null 2>&1; then
+            cargo install --locked stellar-cli --features opt
+          fi
+          stellar --version
+
+      - name: Run testnet smoke test
+        id: smoke
+        continue-on-error: true
+        env:
+          TESTNET_DEPLOYER_SECRET: ${{ secrets.TESTNET_DEPLOYER_SECRET }}
+        run: bash scripts/testnet-smoke.sh
+
+      - name: Report failure on tracking issue
+        if: steps.smoke.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const title = '[Testnet Smoke] Scheduled testnet smoke test failing';
+            const label = 'testnet-smoke';
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The scheduled Stellar Testnet smoke test failed.',
+              '',
+              `- **Workflow run:** ${runUrl}`,
+              `- **Commit:** \`${context.sha}\``,
+              `- **Trigger:** \`${context.eventName}\``,
+            ].join('\n');
+
+            try {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: label,
+                color: 'd93f0b',
+                description: 'Automated Stellar Testnet smoke test tracking',
+              });
+            } catch (e) {
+              // Label already exists or cannot be created; continue without failing.
+            }
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: label,
+              per_page: 10,
+            });
+
+            const existing = openIssues.find((i) => !i.pull_request && i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+              });
+              core.notice(`Updated tracking issue #${existing.number}: ${runUrl}`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: [label],
+              });
+              core.notice(`Created tracking issue #${created.number}: ${runUrl}`);
+            }
+
+      - name: Close tracking issue on recovery
+        if: steps.smoke.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const title = '[Testnet Smoke] Scheduled testnet smoke test failing';
+            const label = 'testnet-smoke';
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: label,
+              per_page: 10,
+            });
+
+            const existing = openIssues.find((i) => !i.pull_request && i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Testnet smoke test recovered and passed: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                state: 'closed',
+              });
+              core.info(`Closed resolved tracking issue #${existing.number}.`);
+            }

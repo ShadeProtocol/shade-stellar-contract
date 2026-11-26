@@ -14,7 +14,7 @@ There are two environments, and most teams use both:
 
 ## Prerequisites
 
-- The toolchain from [Prerequisites](../getting-started/prerequisites.md): Rust 1.84.0 or newer, the `wasm32-unknown-unknown` target, and Stellar CLI 23.x.
+- The toolchain from [Prerequisites](../getting-started/prerequisites.md): Rust 1.84.0 or newer, the `wasm32v1-none` target, and Stellar CLI 23.x.
 - A checkout of this repository, to build the WASMs from.
 - Docker, for the [local network](#part-2-test-against-a-local-network) section only.
 - A [merchant](../glossary.md#merchant) and [payer](../glossary.md#payer) flow in mind — this guide reuses the registration, invoice, and payment calls from [Accepting payments](accepting-payments.md).
@@ -26,13 +26,13 @@ There are two environments, and most teams use both:
 Build and optimize `shade` and `account` from this repository, then copy them into your crate. Pinning the files in your repository means your tests run against a known Shade version rather than whatever happens to be in a sibling checkout.
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release -p shade -p account
-stellar contract optimize --wasm target/wasm32-unknown-unknown/release/shade.wasm
-stellar contract optimize --wasm target/wasm32-unknown-unknown/release/account.wasm
+cargo build --target wasm32v1-none --release -p shade -p account
+stellar contract optimize --wasm target/wasm32v1-none/release/shade.wasm
+stellar contract optimize --wasm target/wasm32v1-none/release/account.wasm
 
 mkdir -p ../my-integration/wasm
-cp target/wasm32-unknown-unknown/release/shade.optimized.wasm   ../my-integration/wasm/shade.wasm
-cp target/wasm32-unknown-unknown/release/account.optimized.wasm ../my-integration/wasm/account.wasm
+cp target/wasm32v1-none/release/shade.optimized.wasm   ../my-integration/wasm/shade.wasm
+cp target/wasm32v1-none/release/account.optimized.wasm ../my-integration/wasm/account.wasm
 ```
 
 See [Building the Contracts](../getting-started/building.md) for the build profiles. Record the SHA-256 of each file (`shasum -a 256 wasm/*.wasm`) next to the Shade commit or release tag they came from, so a failing test can be traced to an exact contract version.
@@ -412,11 +412,11 @@ Deploy from the optimized WASMs you built in [Part 1, step 1](#1-build-the-wasms
 
 ```bash
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/shade.optimized.wasm \
+  --wasm target/wasm32v1-none/release/shade.optimized.wasm \
   --source-account admin --network local --alias shade
 
 stellar contract deploy \
-  --wasm target/wasm32-unknown-unknown/release/account.optimized.wasm \
+  --wasm target/wasm32v1-none/release/account.optimized.wasm \
   --source-account admin --network local --alias account
 
 # The native XLM token is already a SEP-41 contract once its asset contract exists.
@@ -451,7 +451,7 @@ Generate a typed client once (see [Generating and using contract bindings](contr
 
 ```bash
 stellar contract bindings typescript \
-  --wasm target/wasm32-unknown-unknown/release/shade.optimized.wasm \
+  --wasm target/wasm32v1-none/release/shade.optimized.wasm \
   --output-dir ./bindings/shade --overwrite
 (cd bindings/shade && npm install && npm run build)
 ```

@@ -6,6 +6,8 @@ How a merchant registers a webhook destination on-chain, and how an off-chain se
 
 ## On-chain webhook configuration
 
+> **Security:** The webhook URL is stored publicly and `MerchantWebhookSetEvent` keeps every URL you ever set. Do not put secrets, customer names, or tenant names in it. See [Data privacy and on-chain data exposure](../security/data-privacy.md).
+
 ### `set_merchant_webhook`
 
 ```rust

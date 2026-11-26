@@ -4,8 +4,7 @@ This page covers building the Shade Protocol workspace for development and for d
 
 ## Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install) (stable toolchain)
-- The `wasm32v1-none` target: `rustup target add wasm32v1-none`
+- [Rust](https://www.rust-lang.org/tools/install) via `rustup`. The exact version, the `wasm32v1-none` target, `rustfmt` and `clippy` are pinned in [`rust-toolchain.toml`](../../rust-toolchain.toml) and installed automatically. See [Prerequisites](prerequisites.md#the-pinned-toolchain).
 - [Stellar CLI](https://developers.stellar.org/docs/build/smart-contracts/getting-started/setup) (`stellar`) for optimizing and deploying WASM
 
 ## The workspace

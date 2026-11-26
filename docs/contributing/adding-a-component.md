@@ -148,6 +148,7 @@ Key conventions for component functions:
 - Perform caller authentication via `Address::require_auth()` inside the component.
 - Validate inputs and assert state invariants. If validation fails, call `panic_with_error!(env, ContractError::...)`.
 - Access dependencies via other components' exported functions (such as `merchant::get_merchant_id`), rather than accessing their storage keys directly.
+- Paginate list-returning queries using cursor pagination with an enforced maximum page size, ensure no storage collection grows with usage, and ensure read functions emit no events and perform no storage writes (see [ADR 0009](../architecture/decisions/0009-bounded-reads-and-pagination.md)).
 
 ```rust
 // contracts/shade/src/components/merchant_notes.rs
@@ -423,6 +424,11 @@ Before submitting your pull request, verify each item against this reviewer-alig
   - New storage keys are added to `DataKey` in `types.rs`.
   - Total `DataKey` variant count remains within Soroban's 50-variant limit.
   - Storage operations strictly use persistent storage (`env.storage().persistent()`).
+- [ ] **Bounded Reads & Pagination ([ADR 0009](../architecture/decisions/0009-bounded-reads-and-pagination.md))**
+  - List-returning functions are paginated with a cursor and an enforced maximum page size (using `PageInfo`).
+  - No storage entry grows with usage (no unbounded vectors or maps stored under a single key).
+  - Read functions have zero side effects (no storage writes, no `extend_ttl`, and no event emissions).
+  - Unbounded history, multi-predicate filtering, and analytical rollups are left to off-chain indexers.
 - [ ] **Errors & Events**
   - New error codes are appended to `ContractError` in `errors.rs` with explicit discriminant values; existing codes are unchanged.
   - All fallible conditions fail explicitly via `panic_with_error!(env, ContractError::...)`.
@@ -442,6 +448,7 @@ Before submitting your pull request, verify each item against this reviewer-alig
 
 - [The Component Pattern](../architecture/component-pattern.md) — Structural design and three-file pattern in `shade`.
 - [Storage Model](../architecture/storage-model.md) — Key layouts, persistent storage tiers, and ID counter mechanics.
+- [Bounded Reads and Pagination Policy](../architecture/decisions/0009-bounded-reads-and-pagination.md) — Pagination standards, storage limits, and indexer delegation rules.
 - [Access Control](../security/access-control.md) — Roles, admin privileges, and authorization invariants.
 - [Running Tests](../getting-started/running-tests.md) — Running Soroban tests and managing test environments.
 - [Contributing Guidelines](../../CONTRIBUTING.md) — Branch naming conventions, PR process, and local pre-commit checks.

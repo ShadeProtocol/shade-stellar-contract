@@ -8,17 +8,18 @@ Once your environment checks out, continue to [Building the Contracts](building.
 
 | Tool | Required version | Why |
 |---|---|---|
-| Rust (`rustc`, `cargo`) | 1.84.0 or newer, stable channel | Minimum supported Rust version of `soroban-sdk` 23.5.3 and its `soroban-env-host` / `stellar-xdr` dependencies. |
-| `wasm32v1-none` target | Matching your toolchain | Soroban executes WASM; the workspace cannot produce a deployable artifact without it. |
+| `rustup` | Any recent release | Reads [`rust-toolchain.toml`](../../rust-toolchain.toml) and installs the pinned compiler. |
+| Rust (`rustc`, `cargo`) | **1.100.0**, pinned in [`rust-toolchain.toml`](../../rust-toolchain.toml) | Reproducible builds. `soroban-sdk` 23.5.3 and its `soroban-env-host` / `stellar-xdr` dependencies need 1.84.0 or newer. |
+| `wasm32v1-none` target | Installed with the pinned toolchain | Soroban executes WASM; the workspace cannot produce a deployable artifact without it. |
 | Stellar CLI (`stellar`) | 23.x | Optimizes, installs, deploys, and invokes contracts. The CLI major version tracks the protocol/SDK major — pair 23.x with `soroban-sdk` 23.x. |
-| `rustfmt`, `clippy` | Shipped with the stable toolchain | CI fails the build on unformatted code and on any clippy warning. |
+| `rustfmt`, `clippy` | Installed with the pinned toolchain | CI fails the build on unformatted code and on any clippy warning. |
 | `pre-commit` (optional) | Any recent release; needs Python 3 | Runs the same hooks locally that [`.github/workflows/pre-commit.yml`](../../.github/workflows/pre-commit.yml) runs on every PR. |
 
 > **Note:** Everything below assumes you have already cloned the repository and are running commands from its root.
 
 ## Install Rust
 
-Install the toolchain through `rustup`, which is what CI uses (via `dtolnay/rust-toolchain@stable`) and what lets you manage targets and components later.
+Install Rust through `rustup`. CI uses it too: it runs `rustup toolchain install`, which installs whatever [`rust-toolchain.toml`](../../rust-toolchain.toml) pins.
 
 ### macOS and Linux
 
@@ -37,30 +38,30 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 ```
 
-### Select the stable toolchain
+### The pinned toolchain
 
-The workspace does not pin a toolchain file, so `rustup`'s default channel is what builds it. Set it to stable explicitly:
+The repository pins its compiler in [`rust-toolchain.toml`](../../rust-toolchain.toml):
 
-```bash
-rustup default stable
-rustup update stable
+```toml
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32v1-none"]
+profile = "minimal"
 ```
 
-Your `rustc` must be **1.84.0 or newer**. That floor comes from the `rust-version` declared by `soroban-sdk` 23.5.3 and by `soroban-env-common`, `soroban-env-host`, and `stellar-xdr` 23.x, all of which are resolved in [`Cargo.lock`](../../Cargo.lock). An older compiler fails to resolve the dependency graph rather than failing to compile, so the error message points at Cargo, not at Shade's code.
-
-### Add the WASM target
-
-Soroban contracts compile to `wasm32v1-none`. Add the target once per toolchain:
+rustup reads this file from the repository root, or from any directory beneath it, `example/` included, and it overrides your `rustup default`. The first `cargo` command you run here downloads 1.100.0 with the `wasm32v1-none` target and the `rustfmt` and `clippy` components. To install it up front instead:
 
 ```bash
-rustup target add wasm32v1-none
+rustup toolchain install
+rustup show active-toolchain   # 1.100.0-<host> (overridden by '.../rust-toolchain.toml')
 ```
 
-### Add the formatting and lint components
+You don't need to run `rustup target add` or `rustup component add` yourself. Your global default stays whatever it was, so other projects are unaffected.
 
-```bash
-rustup component add rustfmt clippy
-```
+Soroban contracts compile to `wasm32v1-none`. It is pinned to WebAssembly 1.0 (MVP), the feature set Soroban accepts, so a newer `rustc` cannot turn on WebAssembly features the network rejects; it ships with Rust 1.84.0 and is the target Stellar CLI 23.x builds for.
+
+The pin exists so that a new Rust release can't break CI or change the compiled WASM without a commit here. That is also what lets anyone rebuild a tagged commit and check it against a deployed contract (see [Upgradeability](../architecture/upgradeability.md)). Any pin must be 1.84.0 or newer, the floor set by the `rust-version` of `soroban-sdk` 23.5.3 and of `soroban-env-common`, `soroban-env-host` and `stellar-xdr` 23.x, all resolved in [`Cargo.lock`](../../Cargo.lock). How and when to move the pin is in [Contributing § Bumping the Rust toolchain](../../CONTRIBUTING.md#bumping-the-rust-toolchain).
 
 ## Install the Stellar CLI
 
@@ -186,14 +187,14 @@ grep -A1 '^name = "soroban-sdk"$' Cargo.lock | tail -1 \
   | sed 's/^version = /resolved sdk: /'
 ```
 
-Expected output looks like this — exact patch versions vary, the major versions must not:
+Expected output looks like this. `rustc` and `cargo` must report the version pinned in `rust-toolchain.toml`. The Stellar CLI patch version may vary, but its major version must not:
 
 ```text
-rustc:        rustc 1.84.0 (9fc6b4312 2025-01-07)
-cargo:        cargo 1.84.0 (66221abde 2024-11-19)
+rustc:        rustc 1.100.0 (0ef1bc386 2026-11-09)
+cargo:        cargo 1.100.0 (3acc79c0c 2026-11-05)
 stellar CLI:  stellar 23.5.1
-rustfmt:      rustfmt 1.8.0-stable (9fc6b431 2025-01-07)
-clippy:       clippy 0.1.84 (9fc6b4312 2025-01-07)
+rustfmt:      rustfmt 1.11.0-stable (0ef1bc3860 2026-11-09)
+clippy:       clippy 0.1.100 (0ef1bc3860 2026-11-09)
 pre-commit:   pre-commit 3.7.1
 wasm target:  installed
 resolved sdk: "23.5.3"
@@ -212,23 +213,22 @@ If both succeed, your environment is correct.
 
 ### `can't find crate for 'core'` / `the wasm32v1-none target may not be installed`
 
-The WASM target is missing from the active toolchain. Targets are per-toolchain, so adding it under one toolchain does not add it under another:
+The WASM target is missing from the active toolchain. Inside the repository the pinned toolchain should already include it, so first check that the pin is the one in use:
 
 ```bash
-rustup target add wasm32v1-none
-rustup show          # confirms which toolchain is active
+rustup show active-toolchain   # should say "overridden by '.../rust-toolchain.toml'"
+rustup toolchain install       # re-installs the pinned toolchain with its target
 ```
 
-If you switched toolchains (for example `rustup default 1.84.0`), re-add the target for the new one.
+If the active toolchain is not the pinned one, an override is winning over `rust-toolchain.toml`: a `RUSTUP_TOOLCHAIN` environment variable, a `cargo +<toolchain>` argument, or a `rustup override set` for this directory (`rustup override unset` removes it).
 
-### `package requires rustc 1.84.0 or newer`
+### `package requires rustc 1.84.0 or newer`, or `rustup: unknown command` / no toolchain installed
 
-Your compiler is older than the SDK's minimum supported version. Update:
+Your `cargo` is not the pinned one. This usually means Rust was installed without `rustup` (a distro package or Homebrew's `rust` formula), so `rust-toolchain.toml` is ignored. Remove that install, install `rustup`, then let it read the pin:
 
 ```bash
-rustup update stable
-rustup default stable
-rustc --version
+rustup toolchain install
+rustc --version   # must match `channel` in rust-toolchain.toml
 ```
 
 ### Linker errors (`cc: command not found`, `linking with 'cc' failed`)

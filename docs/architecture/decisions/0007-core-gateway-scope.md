@@ -19,7 +19,7 @@ Modules that failed the test moved to the `example` crate closest to their domai
 
 - `shade` has 86 public functions and builds to a WASM of about 80 KB.
 - CI can require the whole workspace to pass, because code that is not maintained is no longer in it.
-- Subscriptions, escrow and DAO-governed upgrades are no longer available from the hub. Integrators who need them must deploy an example contract or restore the module.
+- Subscriptions, escrow and DAO-governed upgrades are no longer available from the hub. Integrators who need them must deploy an example contract or restore the module (see [Restoring an Example Module into the Hub](../../../example/docs/restoring-a-module.md)).
 - `example/` is not tested and may drift from the gateway. It is reference material, not a supported API.
 
 ## Alternatives considered

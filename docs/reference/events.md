@@ -1,6 +1,6 @@
 # Events reference
 
-Every event emitted anywhere in this workspace — the `shade` hub contract and all eight satellite contracts — with its topic, data payload, emitting function, and the state transition it marks. Built by reading every `#[contractevent]` struct and every `publish_*`/`.publish(env)` call site in the repository, not just `contracts/shade/src/events.rs`.
+Every event emitted anywhere in this workspace — the `shade` hub and per-merchant `account` contracts — with its topic, data payload, emitting function, and the state transition it marks. Built by reading every `#[contractevent]` struct and every `publish_*`/`.publish(env)` call site in the repository, not just `contracts/shade/src/events.rs`.
 
 ## How Soroban events work here (read before the tables)
 
@@ -63,6 +63,8 @@ All defined and emitted from [`contracts/shade/src/events.rs`](../../contracts/s
 | `AutoWithdrawThresholdEvent` | `merchant_id: u64`, `token: Address`, `threshold: i128` | `auto_withdrawal::set_auto_withdrawal_threshold` | After writing the merchant's threshold list | Auto-withdrawal threshold set |
 | `AutoWithdrawRecipientEvent` | `merchant_id: u64`, `recipient: Address` | `auto_withdrawal::set_auto_withdrawal_recipient` | After writing `Merchant.auto_withdrawal_recipient` | Auto-withdrawal recipient set |
 | `AutoWithdrawalTriggeredEvent` | `merchant_id: u64`, `token: Address`, `amount: i128`, `recipient: Address` | `auto_withdrawal::trigger_auto_withdrawal` | After the cross-contract `withdraw_to` call on the merchant's `account` contract | Balance crossed the threshold; funds swept |
+| `InvoiceExpiredRefundEvent` | `invoice_id: u64`, `buyer: Address`, `amount: i128`, `token: Address`, `timestamp: u64` | `invoice::claim_refund` | After refunding the expired invoice | Payer reclaimed funds after expiry |
+| `InvoiceSearchExecutedEvent` | `caller: Address`, `count: u32`, `has_next: bool`, `timestamp: u64` | `search::search_invoices_paginated` | After assembling the result page, before returning it | Search telemetry; no storage transition |
 
 ## Access control & pause (shade)
 
@@ -160,6 +162,74 @@ let amount: i128 = fields
 ```
 
 This is exactly the shape `assert_latest_paid_event` and `assert_latest_invoice_event` use in the test suite — nothing here is an invented SDK API; every call (`env.events().all()`, `Map<Symbol, Val>`, `TryIntoVal`, `Symbol::new`) is copied from those test files. Outside a test harness (e.g. reading events from an RPC provider in a client application), the payload arrives as XDR that decodes to the same field-map shape; consult the Stellar SDK for your client language for its own equivalent of `try_into_val`.
+
+## Publisher index
+
+This index maps each `publish_*_event` helper to its event type. The reference
+checker verifies helper coverage per source file. Update it alongside the event
+details when you add a publisher.
+
+## `account` publishers (`contracts/account/src/events.rs`)
+
+| Publisher | Event type |
+| --- | --- |
+| `publish_account_initialized_event` | `AccountInitializedEvent` |
+| `publish_account_restricted_event` | `AccountRestrictedEvent` |
+| `publish_account_verified_event` | `AccountVerifiedEvent` |
+| `publish_refund_processed_event` | `RefundProcessedEvent` |
+| `publish_token_added_event` | `TokenAddedEvent` |
+| `publish_withdrawal_to_event` | `WithdrawalToEvent` |
+| `publish_pending_withdrawal_created_event` | `PendingWithdrawalCreatedEvent` |
+| `publish_withdrawal_approved_event` | `WithdrawalApprovedEvent` |
+| `publish_withdrawal_executed_event` | `WithdrawalExecutedEvent` |
+| `publish_withdrawal_threshold_set_event` | `WithdrawalThresholdSetEvent` |
+
+## `shade` publishers (`contracts/shade/src/events.rs`)
+
+| Publisher | Event type |
+| --- | --- |
+| `publish_initialized_event` | `InitalizedEvent` |
+| `publish_token_added_event` | `TokenAddedEvent` |
+| `publish_token_removed_event` | `TokenRemovedEvent` |
+| `publish_merchant_registered_event` | `MerchantRegisteredEvent` |
+| `publish_merchant_account_deployed_event` | `MerchantAccountDeployedEvent` |
+| `publish_merchant_status_changed_event` | `MerchantStatusChangedEvent` |
+| `publish_invoice_created_event` | `InvoiceCreatedEvent` |
+| `publish_invoice_refunded_event` | `InvoiceRefundedEvent` |
+| `publish_invoice_partially_refunded_event` | `InvoicePartiallyRefundedEvent` |
+| `publish_merchant_verified_event` | `MerchantVerifiedEvent` |
+| `publish_merchant_webhook_set_event` | `MerchantWebhookSetEvent` |
+| `publish_merchant_key_set_event` | `MerchantKeySetEvent` |
+| `publish_role_granted_event` | `RoleGrantedEvent` |
+| `publish_role_revoked_event` | `RoleRevokedEvent` |
+| `publish_contract_paused_event` | `ContractPausedEvent` |
+| `publish_contract_unpaused_event` | `ContractUnpausedEvent` |
+| `publish_fee_proposed_event` | `FeeProposedEvent` |
+| `publish_fee_set_event` | `FeeSetEvent` |
+| `publish_platform_account_set_event` | `PlatformAccountSetEvent` |
+| `publish_token_oracle_set_event` | `TokenOracleSetEvent` |
+| `publish_contract_upgraded_event` | `ContractUpgradedEvent` |
+| `publish_account_restricted_event` | `AccountRestrictedEvent` |
+| `publish_invoice_paid_event` | `InvoicePaidEvent` |
+| `publish_fiat_invoice_priced_event` | `FiatInvoicePricedEvent` |
+| `publish_payment_split_routed_event` | `PaymentSplitRoutedEvent` |
+| `publish_platform_fee_routed_event` | `PlatformFeeRoutedEvent` |
+| `publish_merchant_platform_fee_set_event` | `MerchantPlatformFeeSetEvent` |
+| `publish_merchant_platform_fee_cleared_event` | `PlatformFeeClearedEvent` |
+| `publish_invoice_cancelled_event` | `InvoiceCancelledEvent` |
+| `publish_invoice_amended_event` | `InvoiceAmendedEvent` |
+| `publish_nonce_invalidated_event` | `NonceInvalidatedEvent` |
+| `publish_account_wasm_hash_set_event` | `AccountWasmHashSetEvent` |
+| `publish_merchant_tokens_set_event` | `MerchantTokensSetEvent` |
+| `publish_merchant_token_removed_event` | `MerchantTokenRemovedEvent` |
+| `publish_auto_withdrawal_threshold_set_event` | `AutoWithdrawThresholdEvent` |
+| `publish_auto_withdrawal_recipient_set_event` | `AutoWithdrawRecipientEvent` |
+| `publish_auto_withdrawal_triggered_event` | `AutoWithdrawalTriggeredEvent` |
+| `publish_auto_withdrawal_failed_event` | `AutoWithdrawalFailedEvent` |
+| `publish_admin_transfer_proposed_event` | `AdminTransferProposedEvent` |
+| `publish_admin_transfer_accepted_event` | `AdminTransferAcceptedEvent` |
+| `publish_invoice_expired_refund_event` | `InvoiceExpiredRefundEvent` |
+| `publish_invoice_search_executed_event` | `InvoiceSearchExecutedEvent` |
 
 ## Related pages
 

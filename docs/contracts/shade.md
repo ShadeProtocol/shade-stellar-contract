@@ -4,9 +4,7 @@ The `shade` contract (crate at [`contracts/shade/`](../../contracts/shade)) is S
 
 ## Contract interface
 
-The trait defining this contract's public interface is [`ShadeTrait`](../../contracts/shade/src/shade_interface.rs), implemented verbatim by `Shade` in [`contracts/shade/src/shade.rs`](../../contracts/shade/src/shade.rs). Per the doc comment at the top of `shade_interface.rs`, that trait — not `contracts/shade/src/interface.rs` — is the single source of truth for the contract's exported functions.
-
-> **Note:** `contracts/shade/src/interface.rs` also exists in the repository but is **not** referenced by [`contracts/shade/src/lib.rs`](../../contracts/shade/src/lib.rs) (`lib.rs` declares `pub mod shade_interface;` and does not declare an `interface` module at all). It is dead code as far as the compiled crate is concerned, and as checked out it contains malformed, duplicated `use` statements and a trait body that will not parse. Do not treat `interface.rs` as authoritative for anything; every function list on this page is drawn from `shade_interface.rs`.
+The trait defining this contract's public interface is [`ShadeTrait`](../../contracts/shade/src/shade_interface.rs), implemented verbatim by `Shade` in [`contracts/shade/src/shade.rs`](../../contracts/shade/src/shade.rs).
 
 `ShadeTrait` declares 86 functions, grouped below by domain: Admin & Config, Fees, Merchants, Merchant accounts, Invoices & Payments, Token Analytics, and Search.
 

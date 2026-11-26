@@ -8,7 +8,7 @@ This file exists so that integrators and operators can see what each deployed WA
 - **Entries are grouped by contract** with a bold label: **shade**, **account**. A label of **workspace** covers the toolchain, CI, and anything that touches both. Older entries also name contracts now in `example/`.
 - **Pull requests** are referenced as `#NNN`.
 
-> **Note:** No release has been tagged yet. Every crate is still at `0.0.0`, and the history before the first tag is recorded under [Pre-release history](#pre-release-history), backfilled from merged pull requests. Dates are merge dates. The first tagged release will move the contents of [Unreleased](#unreleased) into a dated version section.
+> **Note:** No release has been tagged yet. Every crate is still at `0.0.0`, and the history before the first tag is recorded under [Pre-release history](#pre-release-history), backfilled from merged pull requests. Dates are merge dates. The first tagged release will move the contents of [Unreleased](#unreleased) into a dated version section. Expected WASM SHA-256 hashes per release are published in the [Address & Hash Registry](docs/operations/address-registry.md) and verified following [Verifying Deployed Contracts](docs/security/verifying-deployments.md).
 
 ## [Unreleased]
 
@@ -22,6 +22,7 @@ This file exists so that integrators and operators can see what each deployed WA
 - **shade:** Account addresses are derived from the merchant ID rather than a random salt.
 - **account: BREAKING:** Error codes 6 and 7 are renamed `WithdrawalRequestNotFound` and `InvalidWithdrawalStatus`.
 - **workspace:** Contracts build for `wasm32v1-none`, and CI builds them.
+- **workspace:** The Rust toolchain is pinned to 1.100.0 in `rust-toolchain.toml`, with `rustfmt`, `clippy` and `wasm32v1-none`. `cargo` uses it automatically, CI installs it instead of the latest stable, and `example/` shares the pin. Bumping it is documented in CONTRIBUTING.md.
 
 ### Fixed
 
@@ -35,10 +36,13 @@ This file exists so that integrators and operators can see what each deployed WA
 - **shade:** `deploy_merchant_account`, `verify_merchant_account`, `add_account_token`, `set_account_withdraw_threshold` and `approve_account_withdrawal`, so the account actions reserved for its manager are reachable.
 - **account:** `sweep_to`, `get_manager` and `get_account_info`. Threshold changes and withdrawal requests, approvals and executions now emit events.
 
+- **workspace:** Add Stellar CLI cookbook for Shade covering copy-pasteable invoke commands for admin, merchant, payer, and read-only operations (#542).
+- **workspace:** Record ADR 0008 (Storage TTL Strategy) defining instance and persistent storage extension policies, ledger thresholds, and operator responsibilities (#590).
 - **workspace:** Documentation set under `docs/` — architecture, concepts, contract and interface references, security notes, operator runbooks, and guides (#469–#475, #478–#483, #520–#525).
 - **workspace:** FAQ and developer troubleshooting guide under `docs/getting-started/`.
 - **workspace:** Guide to testing integrations against Shade locally, in-process and on a local network (`docs/guides/testing-integrations.md`).
 - **workspace:** Wallet integration guide for Freighter and Stellar Wallets Kit (`docs/guides/wallet-integration.md`).
+- **workspace:** ADR 0009 documenting bounded reads, cursor pagination, non-mutating query rules, and indexer delegation policy (#591).
 - **workspace:** This changelog and the release process (`docs/operations/releases.md`), including the breaking-change criteria and an "Update CHANGELOG" item in the pull request template.
 
 ## Pre-release history

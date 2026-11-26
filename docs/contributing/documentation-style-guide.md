@@ -25,6 +25,11 @@ Every docs PR is expected to follow this guide. See [Review Checklist](#review-c
 - Prefer several short sections over one long undifferentiated block of prose.
 - End procedural pages with a way to verify success (a command to run, an expected output) rather than leaving the reader to guess whether it worked.
 
+## Documentation location
+
+- Put Markdown documentation under `docs/`. mdBook only builds pages reachable from [`docs/SUMMARY.md`](../SUMMARY.md), and link checks only scan the docs tree.
+- Do not add Markdown files under crate source folders such as `contracts/*/src/`. Keep test explanations in `docs/getting-started/` or on the relevant concept page; keep API notes in Rustdoc comments next to the code.
+
 ## Code samples
 
 - **Always tag the language** on fenced code blocks (` ```rust `, ` ```bash `, ` ```toml `). An untagged block does not get syntax highlighting and reads as an oversight.
@@ -89,4 +94,5 @@ A docs PR must satisfy all of the following before merge:
 - [ ] **Template compliance** — the page uses the correct template from [`docs/contributing/templates/`](templates) for its page type, with all required sections present.
 - [ ] **Terminology** — first use of each glossary term links to `docs/glossary.md`; terminology is consistent with [Terminology](#terminology) above.
 - [ ] **Style compliance** — sentence-case headings, tagged code blocks, second-person present-tense voice.
-- [ ] **Index updated** — new pages are linked from the relevant `docs/<section>/README.md` and, if top-level, from [`docs/README.md`](../README.md).
+- [ ] **Index updated** — new pages are linked from the relevant `docs/<section>/README.md` and from [`docs/SUMMARY.md`](../SUMMARY.md).
+- [ ] **Location** — Markdown documentation lives under `docs/`; no new `.md` file was added under `contracts/*/src/`.

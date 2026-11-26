@@ -67,6 +67,8 @@ For a `FixedFiat` invoice, the quote is refreshed (`refresh_fiat_invoice_quote`)
 
 ## Creation paths
 
+> **Security:** Everything you pass to Shade is public and permanent, including invoice descriptions. Do not put names, emails, addresses, or order contents in a description; use an opaque reference instead. See [Data privacy and on-chain data exposure](../security/data-privacy.md).
+
 All four creation paths write a new `Invoice` with a fresh ID from `DataKey::InvoiceCount` and validate through the shared `validate_invoice_creation` helper (amount > 0, description ≤ 100 chars, merchant registered and active, token accepted globally and by the merchant, `expires_at` not already in the past, amount greater than the computed platform fee).
 
 ### `create_invoice`

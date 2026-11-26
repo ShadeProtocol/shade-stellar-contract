@@ -35,3 +35,10 @@ repos:
         types: [toml]
         exclude: ^Cargo.lock
 
+  - repo: local
+    hooks:
+      - id: no-stale-wasm-target
+        name: Docs use wasm32v1-none, not wasm32-unknown-unknown
+        language: pygrep
+        entry: wasm32-unknown-unknown
+        files: ^(docs/.*\.md|README\.md|CONTRIBUTING\.md)$

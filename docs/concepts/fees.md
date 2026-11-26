@@ -163,13 +163,13 @@ The merchant's per-merchant override (`200` bps) is what the volume discount is 
 
 | Function | Defined in | Purpose |
 |---|---|---|
-| `set_fee` / `get_fee` | [`contracts/shade/src/interface.rs:32-33`](../../contracts/shade/src/interface.rs) | Set/read a token's default fee immediately (no timelock). |
-| `calculate_fee` | [`contracts/shade/src/interface.rs:108`](../../contracts/shade/src/interface.rs) | Non-panicking fee preview for a merchant/token/amount. |
-| `compute_platform_fee_split` | [`contracts/shade/src/interface.rs:109-114`](../../contracts/shade/src/interface.rs) | Exposes the exact `platform_fee::compute_split` used at payment time, including its guard against a fee `>=` the amount. |
-| `set_merchant_platform_fee` / `get_merchant_platform_fee` / `clear_merchant_platform_fee` | [`contracts/shade/src/interface.rs:115-128`](../../contracts/shade/src/interface.rs) | Manage a per-merchant fee override for a token. |
-| `get_merchant_volume` | [`contracts/shade/src/interface.rs:129`](../../contracts/shade/src/interface.rs) | Cumulative paid volume feeding the discount tiers. |
-| `propose_fee` / `execute_fee` / `get_pending_fee` | [`contracts/shade/src/interface.rs:38-40`](../../contracts/shade/src/interface.rs) | The time-locked fee-change flow. |
-| `set_platform_account` / `get_platform_account` | [`contracts/shade/src/interface.rs:34-35`](../../contracts/shade/src/interface.rs) | Configure the fee destination. |
+| `set_fee` / `get_fee` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Set/read a token's default fee immediately (no timelock). |
+| `calculate_fee` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Non-panicking fee preview for a merchant/token/amount. |
+| `compute_platform_fee_split` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Exposes the exact `platform_fee::compute_split` used at payment time, including its guard against a fee `>=` the amount. |
+| `set_merchant_platform_fee` / `get_merchant_platform_fee` / `clear_merchant_platform_fee` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Manage a per-merchant fee override for a token. |
+| `get_merchant_volume` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Cumulative paid volume feeding the discount tiers. |
+| `propose_fee` / `execute_fee` / `get_pending_fee` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | The time-locked fee-change flow. |
+| `set_platform_account` / `get_platform_account` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs) | Configure the fee destination. |
 
 ## Constraints and edge cases
 

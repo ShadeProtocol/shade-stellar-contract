@@ -123,9 +123,9 @@ sequenceDiagram
 
 | Function | Defined in | Purpose |
 |---|---|---|
-| `pay_invoice` | [`contracts/shade/src/interface.rs:139`](../../contracts/shade/src/interface.rs), impl at [`contracts/shade/src/components/invoice.rs:671`](../../contracts/shade/src/components/invoice.rs) | Pay an invoice's full remaining balance. |
-| `pay_invoice_partial` | [`contracts/shade/src/interface.rs:141`](../../contracts/shade/src/interface.rs), impl at [`contracts/shade/src/components/invoice.rs:690`](../../contracts/shade/src/components/invoice.rs) | Pay an arbitrary amount toward an invoice. |
-| `pay_invoices_batch` | [`contracts/shade/src/interface.rs:140`](../../contracts/shade/src/interface.rs), impl at [`contracts/shade/src/components/invoice.rs:661`](../../contracts/shade/src/components/invoice.rs) | Pay several invoices in full, atomically, under one authorization. |
+| `pay_invoice` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs), impl at [`contracts/shade/src/components/invoice.rs:671`](../../contracts/shade/src/components/invoice.rs) | Pay an invoice's full remaining balance. |
+| `pay_invoice_partial` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs), impl at [`contracts/shade/src/components/invoice.rs:690`](../../contracts/shade/src/components/invoice.rs) | Pay an arbitrary amount toward an invoice. |
+| `pay_invoices_batch` | [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs), impl at [`contracts/shade/src/components/invoice.rs:661`](../../contracts/shade/src/components/invoice.rs) | Pay several invoices in full, atomically, under one authorization. |
 | `platform_fee::compute_split` | [`contracts/shade/src/components/platform_fee.rs:42`](../../contracts/shade/src/components/platform_fee.rs) | Computes the merchant/platform split for one payment amount. |
 | `platform_fee::route_from_payer` | [`contracts/shade/src/components/platform_fee.rs:72`](../../contracts/shade/src/components/platform_fee.rs) | Computes the split, executes both transfers, and records analytics/events. |
 

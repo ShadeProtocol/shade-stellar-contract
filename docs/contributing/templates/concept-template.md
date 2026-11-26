@@ -36,7 +36,7 @@ List the types and storage keys involved, with source links.
 
 | Function | Defined in | Purpose |
 |---|---|---|
-| `example_fn` | [`contracts/shade/src/interface.rs`](../../../contracts/shade/src/interface.rs) | One-line purpose |
+| `example_fn` | [`contracts/shade/src/shade_interface.rs`](../../../contracts/shade/src/shade_interface.rs) | One-line purpose |
 
 ## Constraints and edge cases
 

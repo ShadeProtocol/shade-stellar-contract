@@ -82,6 +82,7 @@ The protocol assumes the following hold true:
 | Batch size limits | `pay_invoices_batch` processes all items in a single transaction. Very large batches may exceed Soroban resource limits. |
 | Admin centralisation | The admin has unilateral control over fees, token whitelisting, role assignments, and WASM upgrades. |
 | Refund window | Refund eligibility is based on a time window that must be configured per invoice. If not configured, invoices may become non-refundable. |
+| Peripheral modules excluded | Escrow, subscriptions, crowdfunding, and governance modules are excluded from the hub to maintain a minimal audit surface and WASM size ([ADR 0007](../architecture/decisions/0007-core-gateway-scope.md)). Integrators requiring them on the hub must follow the [module restoration process](../../example/docs/restoring-a-module.md) or deploy standalone contracts. |
 
 ## Pre-audit checklist
 

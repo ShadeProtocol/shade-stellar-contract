@@ -38,6 +38,7 @@ Fixes #
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] I have tested this manually (describe how, if applicable)
 - [ ] No `test_snapshots/` file is staged in this PR
+- [ ] For dependency bumps (especially `soroban-sdk`), I regenerated affected WASM fixtures, reran tests, and reviewed snapshot diffs as described in the [dependency update policy](../CONTRIBUTING.md#dependency-update-policy), or explained why this does not apply.
 
 ## Documentation Updates
 
@@ -60,6 +61,7 @@ Fixes #
 <!-- Mark completed items with an 'x' -->
 
 - [ ] My code follows the project's style guidelines
+- [ ] Bounded reads and pagination policy followed for all queries and collections (see [ADR 0009](../docs/architecture/decisions/0009-bounded-reads-and-pagination.md))
 - [ ] I have performed a self-review of my own code
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] My changes generate no new warnings

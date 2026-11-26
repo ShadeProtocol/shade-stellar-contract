@@ -6,7 +6,7 @@ This guide helps contract contributors keep Soroban execution costs and deployed
 
 Every storage access consumes resources, and writes also consume ledger write capacity, bytes, and rent. Keep each invocation's reads and writes to the minimum needed to preserve the contract's behavior.
 
-Prefer one entry per independently accessed item over an ever-growing `Vec` stored under one key. An unbounded collection must be loaded and rewritten as it grows, costs more per update, and can eventually exceed transaction limits. Use a count or index plus keyed entries, and paginate reads rather than scanning the entire collection:
+Prefer one entry per independently accessed item over an ever-growing `Vec` stored under one key. An unbounded collection must be loaded and rewritten as it grows, costs more per update, and can eventually exceed transaction limits. Use a count or index plus keyed entries, and paginate reads rather than scanning the entire collection (see [ADR 0009](../architecture/decisions/0009-bounded-reads-and-pagination.md)):
 
 ```rust
 // Prefer independently addressable entries:

@@ -27,19 +27,13 @@ error[E0463]: can't find crate for `core`
   = note: the `wasm32v1-none` target may not be installed
 ```
 
-**Cause.** The WebAssembly target is not installed for the *active* toolchain. Targets are per-toolchain, so switching toolchains (for example `rustup default 1.84.0`) loses the target. The same error appears for `wasm32v1-none` when you build with `stellar contract build`, which [`contracts/shade/Makefile`](../../contracts/shade/Makefile) uses and which writes to `target/wasm32v1-none/release/`.
+**Cause.** The WebAssembly target is not installed for the *active* toolchain. Targets are per-toolchain, so switching toolchains (for example `rustup default 1.84.0`) loses the target. `cargo build --target wasm32v1-none` and `stellar contract build` (used by [`contracts/shade/Makefile`](../../contracts/shade/Makefile)) both need it, and both write to `target/wasm32v1-none/release/`.
 
 **Fix**
 
 ```bash
 rustup target add wasm32v1-none
 rustup show
-```
-
-If the failing target is `wasm32v1-none`, add that one instead:
-
-```bash
-rustup target add wasm32v1-none
 ```
 
 You do not need the WASM target to run `cargo test` — tests build natively. See [Prerequisites § Add the WASM target](prerequisites.md#add-the-wasm-target).

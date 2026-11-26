@@ -1,20 +1,39 @@
 name: Docs Quality
 
-# on:
-#   pull_request:
-#     paths:
-#       - "**/*.md"
-#       - "!example/**"
-#       - "lychee.toml"
-#       - ".github/workflows/docs-quality.yml"
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "contracts/**/src/events.rs"
+      - "contracts/**/src/errors.rs"
+      - "scripts/check-reference-docs.sh"
+      - "scripts/check_reference_docs.py"
+      - "scripts/test_check_reference_docs.py"
+      - "Makefile"
+      - ".github/workflows/docs-quality.yml"
+  push:
+    branches: [main, contrib]
+    paths:
+      - "docs/**"
+      - "contracts/**/src/events.rs"
+      - "contracts/**/src/errors.rs"
+      - "scripts/check-reference-docs.sh"
+      - "scripts/check_reference_docs.py"
+      - "scripts/test_check_reference_docs.py"
+      - "Makefile"
+      - ".github/workflows/docs-quality.yml"
+  workflow_dispatch:
 
-# jobs:
-#   links:
-#     name: Link check
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
-#       - uses: lycheeverse/lychee-action@v2
-#         with:
-#           args: --config lychee.toml docs README.md CONTRIBUTING.md
-#           fail: true
+permissions:
+  contents: read
+
+jobs:
+  references:
+    name: Reference completeness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test reference checker
+        run: python3 -m unittest discover -s scripts -p 'test_check_reference_docs.py' -v
+      - name: Check events and errors references
+        run: bash scripts/check-reference-docs.sh

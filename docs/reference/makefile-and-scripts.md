@@ -12,9 +12,9 @@ The repository's automation wraps `cargo`, `rustc`, `pre-commit`, and the offici
 
 | Tool | Minimum Version | Installation Command | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Rust Toolchain** | `stable` | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | Compiler and package manager |
-| **WASM Target** | `wasm32-unknown-unknown` | `rustup target add wasm32-unknown-unknown` | Cross-compilation to WebAssembly |
-| **Stellar CLI** | `v21.0.0+` | `cargo install --locked stellar-cli --features opt` | Deployment, optimization, invocation |
+| **Rust Toolchain** | `1.84.0+` (stable) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | Compiler and package manager |
+| **WASM Target** | `wasm32v1-none` | `rustup target add wasm32v1-none` | Cross-compilation to the WebAssembly feature set Soroban accepts (needs Rust 1.84.0+) |
+| **Stellar CLI** | `23.x` | `cargo install --locked stellar-cli --features opt` | Deployment, optimization, invocation |
 | **Python & Pip** | `3.9+` | Standard system package | Runs pre-commit git hooks |
 | **Pre-commit** | `v3.0.0+` | `pip install pre-commit` | Client-side git hook framework |
 
@@ -27,10 +27,10 @@ The `Makefile` defines several top-level variables that control target network e
 ```makefile
 NETWORK ?= testnet
 ADMIN ?=
-SHADE_WASM = target/wasm32-unknown-unknown/release/shade.wasm
-ACCOUNT_WASM = target/wasm32-unknown-unknown/release/account.wasm
-SHADE_WASM_OPT = target/wasm32-unknown-unknown/release/shade.optimized.wasm
-ACCOUNT_WASM_OPT = target/wasm32-unknown-unknown/release/account.optimized.wasm
+SHADE_WASM = target/wasm32v1-none/release/shade.wasm
+ACCOUNT_WASM = target/wasm32v1-none/release/account.wasm
+SHADE_WASM_OPT = target/wasm32v1-none/release/shade.optimized.wasm
+ACCOUNT_WASM_OPT = target/wasm32v1-none/release/account.optimized.wasm
 STELLAR_DIR = .stellar
 ```
 
@@ -70,13 +70,13 @@ Deployment and lifecycle targets store output state in the root `.stellar/` dire
 - **Side Effects**: Reads `Makefile` via `grep` and prints formatted output to `stdout`.
 
 #### `make build`
-- **Purpose**: Compiles all workspace contracts to `wasm32-unknown-unknown` in release mode.
+- **Purpose**: Compiles all workspace contracts to `wasm32v1-none` in release mode.
 - **Dependencies**: None.
 - **Required Variables**: None.
-- **Side Effects**: Generates raw unoptimized WASMs in `target/wasm32-unknown-unknown/release/`. Prints file sizes.
+- **Side Effects**: Generates raw unoptimized WASMs in `target/wasm32v1-none/release/`. Prints file sizes.
 - **Command**:
   ```bash
-  cargo build --target wasm32-unknown-unknown --release
+  cargo build --workspace --target wasm32v1-none --release
   ```
 
 #### `make test`
@@ -96,8 +96,8 @@ Deployment and lifecycle targets store output state in the root `.stellar/` dire
 - **Side Effects**: Produces `shade.optimized.wasm` and `account.optimized.wasm`.
 - **Command**:
   ```bash
-  stellar contract optimize --wasm target/wasm32-unknown-unknown/release/shade.wasm
-  stellar contract optimize --wasm target/wasm32-unknown-unknown/release/account.wasm
+  stellar contract optimize --wasm target/wasm32v1-none/release/shade.wasm
+  stellar contract optimize --wasm target/wasm32v1-none/release/account.wasm
   ```
 
 #### `make fmt`
@@ -157,7 +157,7 @@ Deployment and lifecycle targets store output state in the root `.stellar/` dire
 - **Command**:
   ```bash
   stellar contract deploy \
-    --wasm target/wasm32-unknown-unknown/release/shade.optimized.wasm \
+    --wasm target/wasm32v1-none/release/shade.optimized.wasm \
     --network $(NETWORK) \
     --source-account default \
     > .stellar/shade_contract_id.txt
@@ -173,7 +173,7 @@ Deployment and lifecycle targets store output state in the root `.stellar/` dire
 - **Command**:
   ```bash
   stellar contract deploy \
-    --wasm target/wasm32-unknown-unknown/release/account.optimized.wasm \
+    --wasm target/wasm32v1-none/release/account.optimized.wasm \
     --network $(NETWORK) \
     --source-account default \
     > .stellar/account_contract_id.txt
@@ -254,7 +254,7 @@ Deployment and lifecycle targets store output state in the root `.stellar/` dire
 - **Command**:
   ```bash
   stellar contract install \
-    --wasm target/wasm32-unknown-unknown/release/shade.optimized.wasm \
+    --wasm target/wasm32v1-none/release/shade.optimized.wasm \
     --network $(NETWORK) \
     --source-account default \
     > .stellar/shade_new_wasm_hash.txt

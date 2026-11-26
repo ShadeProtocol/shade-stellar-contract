@@ -25,3 +25,5 @@ ADRs 0005 and 0006 concern contracts that moved out of this workspace; they are 
 | [0003](0003-time-locked-fee-changes.md) | Time-locked fee changes via `propose_fee` / `execute_fee` | Accepted |
 | [0004](0004-two-step-admin-transfer.md) | Two-step admin transfer | Accepted |
 | [0007](0007-core-gateway-scope.md) | Limit the workspace to the core payment gateway | Accepted |
+| [0009](0009-bounded-reads-and-pagination.md) | Bounded reads and pagination policy | Accepted |
+| [0008](0008-storage-ttl-strategy.md) | Storage TTL strategy for instance and persistent entries | Accepted |

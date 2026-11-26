@@ -24,3 +24,5 @@ lto = true
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true
+strip = "none"
+debug = true

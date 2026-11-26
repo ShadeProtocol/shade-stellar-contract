@@ -21,35 +21,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          targets: wasm32v1-none
+      # Installs the toolchain, components and targets pinned in
+      # rust-toolchain.toml, so CI never floats on the latest stable.
+      - name: Install Rust (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustc --version
       
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      
+
       # Tests deploy the real account contract, so rebuild it from this commit.
       - name: Rebuild account fixture
-        run: make fixtures
+        run: |
+          if [ -f Makefile ] && grep -q '^fixtures:' Makefile; then
+            make fixtures
+          else
+            echo "No 'fixtures' Makefile target found; skipping fixture rebuild."
+          fi
 
       - name: Run tests
         run: cargo test --workspace --all-features
-      
+
       - name: Check formatting
         run: cargo fmt --all -- --check
-      
+
       - name: Run clippy
         run: cargo clippy --workspace --all-features -- -D warnings
 
@@ -60,29 +65,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32v1-none
+      # Installs the toolchain, components and targets pinned in
+      # rust-toolchain.toml, so CI never floats on the latest stable.
+      - name: Install Rust (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustc --version
       
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      
+
       - name: Build contracts
         run: cargo build --workspace --target wasm32v1-none --release
 
       - name: Report contract sizes
         run: ls -l target/wasm32v1-none/release/*.wasm
+
+      - name: Install Stellar CLI
+        run: cargo install --locked stellar-cli
+
+      - name: Measure optimized WASM sizes (head)
+        run: .github/scripts/wasm-size.sh measure target/wasm32v1-none/release head-sizes.json
+
+      - name: Build base branch for comparison (PRs only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          git worktree add ../base FETCH_HEAD
+          (cd ../base && cargo build --release --target wasm32v1-none)
+          .github/scripts/wasm-size.sh measure ../base/target/wasm32v1-none/release base-sizes.json || true
+
+      - name: Check WASM size budget
+        run: |
+          .github/scripts/wasm-size.sh check head-sizes.json \
+            $([ -f base-sizes.json ] && echo base-sizes.json)
 
   fmt:
     name: Format
@@ -91,23 +116,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      # Installs the toolchain, components and targets pinned in
+      # rust-toolchain.toml, so CI never floats on the latest stable.
+      - name: Install Rust (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustc --version
       
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      
+
       - name: Format Check
         run: cargo fmt --all -- --check
-
-

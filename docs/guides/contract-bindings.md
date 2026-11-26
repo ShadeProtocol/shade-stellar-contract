@@ -4,7 +4,7 @@ How to generate a typed TypeScript client for a Shade Protocol contract, how the
 
 ## Prerequisites
 
-- Toolchain from [Prerequisites](../getting-started/prerequisites.md): Rust ≥ 1.84.0, `wasm32-unknown-unknown` target, Stellar CLI 23.x.
+- Toolchain from [Prerequisites](../getting-started/prerequisites.md): Rust ≥ 1.84.0, `wasm32v1-none` target, Stellar CLI 23.x.
 - Node.js and npm, to build the generated TypeScript package.
 - A WASM build of the contract you want bindings for (see [Building the Contracts](../getting-started/building.md)), or a contract already deployed to a network.
 
@@ -15,15 +15,15 @@ How to generate a typed TypeScript client for a Shade Protocol contract, how the
 Build and optimize the contract first (see [Building the Contracts](../getting-started/building.md#optimizing-the-wasm-for-deployment)):
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release -p shade
-stellar contract optimize --wasm target/wasm32-unknown-unknown/release/shade.wasm
+cargo build --target wasm32v1-none --release -p shade
+stellar contract optimize --wasm target/wasm32v1-none/release/shade.wasm
 ```
 
 Then generate the TypeScript package from the optimized WASM:
 
 ```bash
 stellar contract bindings typescript \
-  --wasm target/wasm32-unknown-unknown/release/shade.optimized.wasm \
+  --wasm target/wasm32v1-none/release/shade.optimized.wasm \
   --output-dir ./bindings/shade \
   --overwrite
 ```
@@ -230,8 +230,8 @@ There is no on-chain semantic version to check instead — this repository does 
 ## Regenerating bindings after a contract change
 
 1. Land the interface change in `contracts/<crate>/src/` (and update `docs/reference/shade-interface.md` / `docs/reference/data-types.md` in the same PR — see [CONTRIBUTING.md](../../CONTRIBUTING.md#keeping-reference-docs-in-sync)).
-2. Rebuild: `cargo build --target wasm32-unknown-unknown --release -p <crate>`.
-3. Optimize: `stellar contract optimize --wasm target/wasm32-unknown-unknown/release/<crate>.wasm`.
+2. Rebuild: `cargo build --target wasm32v1-none --release -p <crate>`.
+3. Optimize: `stellar contract optimize --wasm target/wasm32v1-none/release/<crate>.wasm`.
 4. Regenerate: `stellar contract bindings typescript --wasm target/.../<crate>.optimized.wasm --output-dir ./bindings/<crate> --overwrite`.
 5. Review the diff in `bindings/<crate>/src/index.ts` — a changed function signature, added/removed struct field, or renamed type is your signal that dependent application code needs updating too.
 6. Rebuild and re-run your application's test suite against the new client (`npm run build` inside the bindings package, then whatever tests exercise it).

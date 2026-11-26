@@ -58,7 +58,7 @@ For a token with no payments, `get_token_analytics` returns all-zero fields with
 
 ## Relevant functions
 
-All five are read-only, require no authorization, and are declared in [`contracts/shade/src/interface.rs#L322-L335`](../../contracts/shade/src/interface.rs). Implementations are in [`contracts/shade/src/components/analytics.rs#L280-L389`](../../contracts/shade/src/components/analytics.rs).
+All five are read-only, require no authorization, and are declared in [`contracts/shade/src/shade_interface.rs`](../../contracts/shade/src/shade_interface.rs). Implementations are in [`contracts/shade/src/components/analytics.rs#L280-L389`](../../contracts/shade/src/components/analytics.rs).
 
 | Function | Signature | Returns |
 |---|---|---|
