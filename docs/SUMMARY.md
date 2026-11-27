@@ -75,6 +75,7 @@
 - [Operations](operations/README.md)
   - [Deployment](operations/deployment.md)
   - [Address & Hash Registry](operations/address-registry.md)
+  - [State Archival and TTL Extension](operations/state-archival.md)
   - [Admin Runbook](operations/admin-runbook.md)
   - [Upgrade Runbook](operations/upgrade-runbook.md)
 - [Contributing](contributing/documentation-style-guide.md)
