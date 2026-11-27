@@ -64,6 +64,7 @@
   - [Deployment](operations/deployment.md)
   - [Admin Runbook](operations/admin-runbook.md)
   - [Upgrade Runbook](operations/upgrade-runbook.md)
+  - [State Archival and TTL Extension Runbook](operations/state-archival.md)
 - [Contributing](contributing/documentation-style-guide.md)
   - [Docs Tooling](contributing/docs-tooling.md)
   - [Concept Template](contributing/templates/concept-template.md)
