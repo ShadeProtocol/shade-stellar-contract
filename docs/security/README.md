@@ -4,6 +4,7 @@ Threat model, access control, and audit-relevant notes for the Shade Protocol co
 
 - [Security Policy & Vulnerability Disclosure](../../SECURITY.md) — supported versions, private reporting channels, SLAs, bug bounty guidelines, and safe harbor.
 - [Security audit readiness package](audit-package.md) — audit scope, architecture, documented risks, test instructions, and findings tracking.
+- [Security review checklist for contract PRs](pr-review-checklist.md) — author and reviewer checks for PRs touching `contracts/`.
 - [Threat model and security assumptions](threat-model.md) — assets, trust assumptions, attacker classes, attack surfaces, and known limitations.
 - [Signed invoices, merchant keys, and signature verification](signatures.md) — off-chain signing scheme, nonce replay protection, and key rotation.
 - [Access control and roles](access-control.md) — admin supremacy, Role enum, grant/revoke, permission matrix.
