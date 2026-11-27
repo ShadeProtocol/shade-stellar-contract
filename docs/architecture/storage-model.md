@@ -112,3 +112,4 @@ This has the following implications, labeled by their source:
 - [Merchants](../concepts/merchants.md)
 - [Glossary: Instance / Persistent / Temporary Storage](../glossary.md#instance--persistent--temporary-storage)
 - [Glossary: TTL / Rent](../glossary.md#ttl--rent)
+- [State Archival and TTL Extension Runbook](../operations/state-archival.md)

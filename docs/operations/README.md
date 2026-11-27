@@ -5,6 +5,7 @@ Runbooks for protocol operators, written from the [runbook template](../contribu
 - [Deployment Runbook](deployment.md) — deploying `shade` and uploading the `account` WASM to local, testnet, and mainnet.
 - [Address & Hash Registry](address-registry.md) — canonical deployed contract IDs and expected WASM SHA-256 hashes per release.
 - [Contract Upgrade Runbook](upgrade-runbook.md) — pre-flight, execution, verification, and rollback for upgrading a deployed `shade` contract.
+- [State Archival and TTL Extension](state-archival.md) — monitor contract and data-entry TTLs, extend live entries, and restore archived state.
 - [Admin Operations and Incident Response Runbook](admin-runbook.md) — routine admin operations (fees, tokens, merchants, roles, platform account) and incident response.
 - [Releases Runbook](releases.md) — versioning, tagging, building reproducible WASMs, recording hashes, writing release notes, publishing a GitHub Release, and the criteria for a breaking change.
 - Rotating the admin key (two-step transfer) — see [Admin Runbook § Role management](admin-runbook.md#admin-transfer).

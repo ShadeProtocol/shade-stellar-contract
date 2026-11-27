@@ -34,8 +34,9 @@ We adopt an automated in-contract TTL extension strategy that protects contract 
 
 ## Consequences
 
-- **Guaranteed Availability for Active Accounts**: Active merchants, recurring payment pathways, and contract administration stay permanently live without manual operator intervention.
-- **Predictable Rent Overhead**: Write calls incur a minor, bounded additional resource fee to cover the TTL bump.
+- **Implementation status**: This strategy is accepted but not yet implemented. No production contract currently calls `extend_ttl`; until implementation is complete, active state is not automatically protected and operators must follow the [State Archival and TTL Extension Runbook](../../operations/state-archival.md).
+- **Intended availability after implementation**: Active merchants, recurring payment pathways, and contract administration should remain live through state-changing calls, subject to successful transactions and network limits.
+- **Expected rent overhead after implementation**: Write calls will incur additional resource and rent fees for TTL extensions; actual costs depend on entry size, extension horizon, and network parameters.
 - **Natural Archival of Inactive Historical Records**: Completed, cancelled, or refunded invoices that are never accessed again will eventually reach their TTL and be archived by the network, saving persistent state rent across the ecosystem.
 - **Operator Responsibilities**: Operators must still maintain an off-chain monitoring runbook to restore archived historical invoices if a client requests retro-active audit data, and ensure operational funded accounts exist for administrative bumps if contracts experience prolonged dormancy.
 
